@@ -5,7 +5,7 @@ import pytest
 
 from app import create_app, ensure_default_admin
 from app.extensions import db
-from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, ensure_default_cards, log_event
+from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, ensure_default_cards, local_now, log_event
 from app.tasks.overdue import check_overdue_checkouts
 
 
@@ -307,6 +307,46 @@ def test_admin_can_book_a_card_indefinitely_with_a_visible_note():
             assert checkout.indefinite_booking is True
             assert checkout.booking_note == "Awaiting final approval from the board."
             assert checkout.due_at is None
+
+
+def test_indefinite_booking_renders_without_error_in_admin_views():
+    app = build_app()
+    with app.app_context():
+        admin = User.query.filter_by(email="server@solidground.co.za").first()
+        card = Card.query.first()
+        checkout = Checkout(
+            card_id=card.id,
+            user_id=admin.id,
+            purpose="Leadership indefinite booking",
+            checked_out_at=local_now(),
+            original_due_at=None,
+            due_at=None,
+            returned_at=None,
+            indefinite_booking=True,
+            booking_note="Board approval pending",
+            is_active=True,
+        )
+        db.session.add(checkout)
+        db.session.commit()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        checkout_page = client.get("/checkout")
+        assert checkout_page.status_code == 200
+        assert b"Indefinite" in checkout_page.data
+
+        admin_history = client.get("/admin/history")
+        assert admin_history.status_code == 200
+        assert b"Indefinite" in admin_history.data
 
 
 def test_dashboard_available_cards_expand_for_logged_in_users():

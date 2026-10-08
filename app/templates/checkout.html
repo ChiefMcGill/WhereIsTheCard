@@ -65,7 +65,7 @@
                             <p class="mb-1"><strong>Booking note:</strong> {{ checkout.booking_note or 'Leadership booking - no note recorded.' }}</p>
                             <p class="mb-1"><strong>Expiry:</strong> Indefinite</p>
                         {% else %}
-                            <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</p>
+                            <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %Y %H:%M') if checkout.due_at else 'No due date' }}</p>
                         {% endif %}
                         {% if checkout.user_id == current_user.id %}
                             <p class="text-warning">The card must be returned by the person who checked it out. Do not hand it to another person.</p>

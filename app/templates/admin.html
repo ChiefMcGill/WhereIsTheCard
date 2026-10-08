@@ -25,7 +25,7 @@
                 <tr>
                     <td>{{ checkout.card.name }}</td>
                     <td>{{ checkout.user.name }}</td>
-                    <td>{{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</td>
+                    <td>{% if checkout.indefinite_booking %}Indefinite{% else %}{{ checkout.due_at.strftime('%d %b %Y %H:%M') if checkout.due_at else 'No due date' }}{% endif %}</td>
                     <td>{{ checkout.purpose }}</td>
                 </tr>
             {% endif %}

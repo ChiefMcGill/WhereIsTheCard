@@ -70,7 +70,7 @@
                                 <p class="mb-1"><strong>Booking note:</strong> {{ checkout.booking_note or 'Leadership booking - no note recorded.' }}</p>
                                 <p class="mb-1"><strong>Expiry:</strong> Indefinite</p>
                             {% else %}
-                                <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %H:%M') }}</p>
+                                <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %H:%M') if checkout.due_at else 'No due date' }}</p>
                             {% endif %}
                             {% if current_user.is_authenticated %}
                                 <p class="mb-0"><strong>Purpose:</strong> {{ checkout.purpose }}</p>
@@ -87,7 +87,7 @@
                                                 {% elif item.indefinite_booking %}
                                                     → indefinite booking
                                                 {% else %}
-                                                    → due {{ item.due_at.strftime('%d %b %Y %H:%M') }}
+                                                    → due {{ item.due_at.strftime('%d %b %Y %H:%M') if item.due_at else 'No due date' }}
                                                 {% endif %}
                                             </li>
                                         {% endfor %}
