@@ -119,6 +119,42 @@ def test_admin_can_create_other_users_and_admins_with_default_passwords():
         assert user.check_password("DefaultVol123")
 
 
+def test_admin_nav_and_email_settings_are_available_in_ui():
+    app = build_app()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        home = client.get("/", follow_redirects=True)
+        assert home.status_code == 200
+        assert b"/admin" in home.data.lower()
+
+        response = client.post(
+            "/admin/settings",
+            data={
+                "SMTP_HOST": "smtp.example.com",
+                "SMTP_PORT": "587",
+                "SMTP_USERNAME": "mailer@example.com",
+                "SMTP_PASSWORD": "secret-password",
+                "SMTP_USE_TLS": "true",
+                "MAIL_FROM": "no-reply@solidground.co.za",
+                "FINANCE_EMAIL": "finance@solidground.co.za",
+                "SENIOR_PASTOR_EMAIL": "seniorpastor@solidground.co.za",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b"email settings saved" in response.data.lower()
+
+
 def test_available_card_can_be_checked_out_and_cannot_be_checked_out_twice():
     app = build_app()
     with app.app_context():

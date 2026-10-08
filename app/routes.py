@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
 from app.forms import LoginForm
-from app.models import Card, Checkout, ExtensionRequest, User, log_event
+from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, log_event
 from app.notifications.email import send_email
 
 
@@ -229,7 +229,7 @@ def register_routes(app):
                 db.session.commit()
                 log_event(current_user, "extension_request", "extension_request", extension.id, f"Requested extension for {checkout.card.name}")
 
-                senior_pastor_email = os.getenv("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za")
+                senior_pastor_email = AppSetting.get("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za")
                 subject = f"Extension request: {checkout.card.name}"
                 body = (
                     f"A user has requested an extension for {checkout.card.name}.\n\n"
@@ -404,6 +404,42 @@ def register_routes(app):
 
         cards = Card.query.order_by(Card.id).all()
         return render_template("admin_cards.html", cards=cards)
+
+    @app.route("/admin/settings", methods=["GET", "POST"])
+    @login_required
+    def admin_settings():
+        if current_user.role != "ADMIN":
+            abort(403)
+
+        if request.method == "POST":
+            settings = {
+                "SMTP_HOST": request.form.get("SMTP_HOST", "").strip(),
+                "SMTP_PORT": request.form.get("SMTP_PORT", "587").strip(),
+                "SMTP_USERNAME": request.form.get("SMTP_USERNAME", "").strip(),
+                "SMTP_PASSWORD": request.form.get("SMTP_PASSWORD", "").strip(),
+                "SMTP_USE_TLS": "true" if request.form.get("SMTP_USE_TLS") == "true" else "false",
+                "MAIL_FROM": request.form.get("MAIL_FROM", "").strip(),
+                "FINANCE_EMAIL": request.form.get("FINANCE_EMAIL", "").strip(),
+                "SENIOR_PASTOR_EMAIL": request.form.get("SENIOR_PASTOR_EMAIL", "").strip(),
+            }
+            for key, value in settings.items():
+                AppSetting.set(key, value)
+            flash("Email settings saved.", "success")
+
+        values = {
+            key: AppSetting.get(key, default)
+            for key, default in {
+                "SMTP_HOST": "",
+                "SMTP_PORT": "587",
+                "SMTP_USERNAME": "",
+                "SMTP_PASSWORD": "",
+                "SMTP_USE_TLS": "true",
+                "MAIL_FROM": "no-reply@solidground.co.za",
+                "FINANCE_EMAIL": "finance@solidground.co.za",
+                "SENIOR_PASTOR_EMAIL": "seniorpastor@solidground.co.za",
+            }.items()
+        }
+        return render_template("admin_settings.html", settings=values)
 
     @app.route("/admin/history")
     @login_required

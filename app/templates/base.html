@@ -18,6 +18,9 @@
             <div class="ms-auto d-flex align-items-center gap-2">
                 {% if current_user.is_authenticated %}
                     <span class="text-light small">{{ current_user.name }}</span>
+                    {% if current_user.role == 'ADMIN' %}
+                        <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin') }}">Admin</a>
+                    {% endif %}
                     <a class="btn btn-outline-light btn-sm" href="{{ url_for('checkout') }}">Checkout</a>
                     <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
                 {% else %}

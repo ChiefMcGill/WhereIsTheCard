@@ -4,7 +4,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import Config
 from app.extensions import csrf, db, login_manager, migrate
-from app.models import Card, User, ensure_default_cards
+from app.models import AppSetting, Card, User, ensure_default_cards
 
 
 def ensure_user_schema():
@@ -13,6 +13,22 @@ def ensure_user_schema():
     if "must_change_password" not in columns:
         db.session.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"))
         db.session.commit()
+
+
+def ensure_default_settings(app):
+    defaults = {
+        "SMTP_HOST": app.config.get("EMAIL_HOST") or "",
+        "SMTP_PORT": str(app.config.get("EMAIL_PORT", "587")),
+        "SMTP_USERNAME": app.config.get("EMAIL_USERNAME") or "",
+        "SMTP_PASSWORD": app.config.get("EMAIL_PASSWORD") or "",
+        "SMTP_USE_TLS": "true" if app.config.get("EMAIL_USE_TLS", True) else "false",
+        "MAIL_FROM": app.config.get("MAIL_FROM", "no-reply@solidground.co.za"),
+        "FINANCE_EMAIL": app.config.get("FINANCE_EMAIL", "finance@solidground.co.za"),
+        "SENIOR_PASTOR_EMAIL": app.config.get("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za"),
+    }
+    for key, value in defaults.items():
+        if AppSetting.get(key) is None and value not in (None, ""):
+            AppSetting.set(key, value)
 
 
 def ensure_default_admin(app):
@@ -77,6 +93,7 @@ def create_app(test_config=None):
         db.create_all()
         ensure_user_schema()
         ensure_default_cards()
+        ensure_default_settings(app)
         ensure_default_admin(app)
 
     return app

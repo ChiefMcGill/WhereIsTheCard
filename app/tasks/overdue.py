@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 from app.extensions import db
-from app.models import AuditLog, Checkout, log_event
+from app.models import AppSetting, AuditLog, Checkout, log_event
 from app.notifications.email import send_email
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ def check_overdue_checkouts():
         if checkout.overdue_notified:
             continue
 
-        finance_email = os.getenv("FINANCE_EMAIL", "finance@solidground.co.za")
+        finance_email = AppSetting.get("FINANCE_EMAIL", "finance@solidground.co.za")
         card = checkout.card
         holder = checkout.user
         overdue_minutes = max(1, int((now - checkout.due_at).total_seconds() // 60))

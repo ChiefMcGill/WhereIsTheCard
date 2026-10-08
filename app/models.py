@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from flask_login import UserMixin
@@ -45,6 +46,39 @@ class User(db.Model, UserMixin):
 
     def __repr__(self):
         return f"<User {self.email}>"
+
+
+class AppSetting(db.Model):
+    __tablename__ = "app_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(128), unique=True, index=True, nullable=False)
+    value = db.Column(db.Text, nullable=True)
+
+    @staticmethod
+    def get(key, default=None):
+        setting = AppSetting.query.filter_by(key=key).first()
+        if setting is None:
+            return default
+        return setting.value
+
+    @staticmethod
+    def set(key, value):
+        setting = AppSetting.query.filter_by(key=key).first()
+        if setting is None:
+            setting = AppSetting(key=key, value=str(value) if value is not None else "")
+        else:
+            setting.value = str(value) if value is not None else ""
+        db.session.add(setting)
+        db.session.commit()
+        return setting.value
+
+    @staticmethod
+    def get_bool(key, default=False):
+        value = AppSetting.get(key)
+        if value is None:
+            return default
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 class Card(db.Model):
