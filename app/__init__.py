@@ -6,6 +6,21 @@ from app.extensions import csrf, db, login_manager, migrate
 from app.models import Card, User, ensure_default_cards
 
 
+def ensure_default_admin(app):
+    if User.query.count() > 0:
+        return
+
+    admin_name = app.config.get("INITIAL_ADMIN_NAME", "Church Admin")
+    admin_email = (app.config.get("INITIAL_ADMIN_EMAIL", "admin@solidground.co.za") or "admin@solidground.co.za").strip().lower()
+    admin_password = app.config.get("INITIAL_ADMIN_PASSWORD", "ChangeMeNow123!")
+
+    admin = User(name=admin_name, email=admin_email, role="ADMIN", active=True)
+    admin.set_password(admin_password)
+    db.session.add(admin)
+    db.session.commit()
+    app.logger.warning("Initial admin created with email %s. Change the password in the web UI after logging in.", admin_email)
+
+
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -35,6 +50,7 @@ def create_app(test_config=None):
     with app.app_context():
         db.create_all()
         ensure_default_cards()
+        ensure_default_admin(app)
 
     return app
 
