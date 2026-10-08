@@ -62,6 +62,40 @@ def test_initial_admin_must_change_password_on_first_login():
         assert b"change your password" in response.data.lower()
 
 
+def test_user_and_admin_can_request_a_forgot_password_reset_link():
+    app = build_app()
+    with app.app_context():
+        admin = User.query.filter_by(email="server@solidground.co.za").first()
+        user = create_user("member@church.org", "Church Member", "USER", "oldpass123")
+        assert admin is not None
+        assert user is not None
+
+    with app.test_client() as client:
+        response = client.post("/forgot-password", data={"email": "member@church.org"}, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"If an account exists" in response.data
+
+        with app.app_context():
+            user = User.query.filter_by(email="member@church.org").first()
+            assert user is not None
+            assert user.password_reset_token is not None
+            token = user.password_reset_token
+
+        reset = client.post(
+            f"/reset-password/{token}",
+            data={"new_password": "NewStrongPass456", "confirm_password": "NewStrongPass456"},
+            follow_redirects=True,
+        )
+        assert reset.status_code == 200
+        assert b"Password reset successfully" in reset.data
+
+        with app.app_context():
+            user = User.query.filter_by(email="member@church.org").first()
+            assert user is not None
+            assert user.check_password("NewStrongPass456")
+            assert user.password_reset_token is None
+
+
 def test_checkout_form_has_no_custom_duration_and_default_admin_email_is_server():
     app = build_app()
     with app.app_context():

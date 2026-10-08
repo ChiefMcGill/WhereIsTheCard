@@ -12,7 +12,11 @@ def ensure_user_schema():
     columns = {column["name"] for column in inspector.get_columns("users")}
     if "must_change_password" not in columns:
         db.session.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"))
-        db.session.commit()
+    if "password_reset_token" not in columns:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255)"))
+    if "password_reset_expires_at" not in columns:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN password_reset_expires_at DATETIME"))
+    db.session.commit()
 
 
 def ensure_checkout_schema():

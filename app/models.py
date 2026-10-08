@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta
 
 from flask_login import UserMixin
@@ -44,6 +45,8 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(32), nullable=False, default="USER")
     active = db.Column(db.Boolean, nullable=False, default=True)
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
+    password_reset_token = db.Column(db.String(255), nullable=True)
+    password_reset_expires_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     last_login = db.Column(db.DateTime, nullable=True)
 
@@ -56,6 +59,15 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def generate_password_reset_token(self):
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_expires_at = local_now() + timedelta(hours=1)
+        return self.password_reset_token
+
+    def clear_password_reset_token(self):
+        self.password_reset_token = None
+        self.password_reset_expires_at = None
 
     def current_checkout(self):
         return Checkout.query.filter_by(user_id=self.id, returned_at=None).first()

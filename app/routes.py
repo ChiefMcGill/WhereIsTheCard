@@ -71,7 +71,11 @@ def register_routes(app):
     def dashboard():
         cards = Card.query.filter_by(active=True).order_by(Card.id).all()
         duration_options = _checkout_duration_options()
-        return render_template("dashboard.html", cards=cards, current_user=current_user, duration_options=duration_options)
+        card_history = {
+            card.id: sorted(card.checkouts, key=lambda item: item.checked_out_at or datetime.min, reverse=True)[:5]
+            for card in cards
+        }
+        return render_template("dashboard.html", cards=cards, current_user=current_user, duration_options=duration_options, card_history=card_history)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -120,6 +124,7 @@ def register_routes(app):
                 else:
                     current_user.set_password(new_password)
                     current_user.must_change_password = False
+                    current_user.clear_password_reset_token()
                     db.session.add(current_user)
                     db.session.commit()
                     log_event(current_user, "password_changed", "user", current_user.id, "Password changed via change-password flow")
@@ -127,6 +132,61 @@ def register_routes(app):
                     return redirect(url_for("checkout"))
 
         return render_template("change_password.html", must_change=current_user.must_change_password)
+
+    @app.route("/forgot-password", methods=["GET", "POST"])
+    def forgot_password():
+        if current_user.is_authenticated:
+            return redirect(url_for("checkout"))
+
+        if request.method == "POST":
+            email = (request.form.get("email") or "").strip().lower()
+            user = User.query.filter_by(email=email).first()
+            if user:
+                token = user.generate_password_reset_token()
+                db.session.add(user)
+                db.session.commit()
+                reset_url = url_for("reset_password", token=token, _external=True)
+                body = (
+                    f"Hi {user.name},\n\n"
+                    "You requested a password reset for Where Is The Card.\n"
+                    f"Use this link to reset your password: {reset_url}\n\n"
+                    "If you did not request this, you can ignore this email."
+                )
+                send_email("Reset your Where Is The Card password", body, user.email, sender=AppSetting.get("MAIL_FROM") or None)
+            flash("If an account exists for that email address, a password reset link has been sent.", "info")
+            return redirect(url_for("login"))
+
+        return render_template("forgot_password.html")
+
+    @app.route("/reset-password/<token>", methods=["GET", "POST"])
+    def reset_password(token):
+        if current_user.is_authenticated:
+            return redirect(url_for("checkout"))
+
+        user = User.query.filter_by(password_reset_token=token).first()
+        if user is None or user.password_reset_expires_at is None or user.password_reset_expires_at < local_now():
+            flash("This password reset link is invalid or has expired.", "danger")
+            return redirect(url_for("forgot_password"))
+
+        if request.method == "POST":
+            new_password = request.form.get("new_password") or ""
+            confirm_password = request.form.get("confirm_password") or ""
+
+            if len(new_password) < 6:
+                flash("Password must be at least 6 characters.", "warning")
+            elif new_password != confirm_password:
+                flash("Passwords do not match.", "warning")
+            else:
+                user.set_password(new_password)
+                user.must_change_password = False
+                user.clear_password_reset_token()
+                db.session.add(user)
+                db.session.commit()
+                log_event(user, "password_reset", "user", user.id, "Password reset via email link")
+                flash("Password reset successfully. You can now log in.", "success")
+                return redirect(url_for("login"))
+
+        return render_template("reset_password.html", token=token)
 
     @app.route("/logout")
     @login_required
@@ -499,6 +559,25 @@ def register_routes(app):
 
         cards = Card.query.order_by(Card.id).all()
         return render_template("admin_cards.html", cards=cards)
+
+    @app.route("/admin/cards/<int:card_id>/delete", methods=["POST"])
+    @login_required
+    def delete_card(card_id):
+        if current_user.role != "ADMIN":
+            abort(403)
+
+        card = Card.query.get_or_404(card_id)
+        if card.current_checkout is not None:
+            flash("Cannot delete a card that is currently checked out.", "warning")
+            return redirect(url_for("admin_cards"))
+
+        ExtensionRequest.query.filter_by(card_id=card.id).delete(synchronize_session=False)
+        Checkout.query.filter_by(card_id=card.id).delete(synchronize_session=False)
+        db.session.delete(card)
+        db.session.commit()
+        log_event(current_user, "card_deleted", "card", card.id, f"Deleted {card.name}")
+        flash("Card removed.", "success")
+        return redirect(url_for("admin_cards"))
 
     @app.route("/admin/settings", methods=["GET", "POST"])
     @login_required
