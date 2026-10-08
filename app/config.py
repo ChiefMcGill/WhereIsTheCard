@@ -12,10 +12,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
-    INITIAL_ADMIN_NAME = os.getenv("INITIAL_ADMIN_NAME", "Church Admin")
-    INITIAL_ADMIN_EMAIL = os.getenv("INITIAL_ADMIN_EMAIL", "admin@solidground.co.za")
-    INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD", "ChangeMeNow123!")
+    SECRET_KEY = os.getenv("SECRET_KEY", "solid-ground-card-secret")
+    INITIAL_ADMIN_NAME = "Church Admin"
+    INITIAL_ADMIN_EMAIL = "admin@solidground.co.za"
+    INITIAL_ADMIN_PASSWORD = "CardAdmin123"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'app.db'}")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=int(os.getenv("SESSION_TIMEOUT_MINUTES", "15")))

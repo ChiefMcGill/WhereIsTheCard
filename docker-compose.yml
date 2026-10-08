@@ -7,7 +7,6 @@ services:
     command: gunicorn --bind 0.0.0.0:8000 --workers 2 "app:create_app()"
     environment:
       TZ: Africa/Johannesburg
-      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key}
       DATABASE_URL: sqlite:////data/app.db
       SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-15}
       CARD_CHECKOUT_MINUTES: ${CARD_CHECKOUT_MINUTES:-60}
@@ -26,7 +25,6 @@ services:
     command: python -m app.worker
     environment:
       TZ: Africa/Johannesburg
-      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key}
       DATABASE_URL: sqlite:////data/app.db
       SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-15}
       CARD_CHECKOUT_MINUTES: ${CARD_CHECKOUT_MINUTES:-60}
