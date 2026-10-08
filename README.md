@@ -84,6 +84,9 @@ The application reads values from environment variables. The example file includ
 - `MAIL_FROM`
 - `FINANCE_EMAIL`
 - `SENIOR_PASTOR_EMAIL`
+- `SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES`
+
+The built-in bootstrap administrator is `server@solidground.co.za` with the default password `CardAdmin123`, and the admin can change it from the web UI after first login.
 
 The docker-compose example mounts the database directory at `/data`, so the SQLite file is persisted between container restarts.
 
@@ -156,9 +159,13 @@ This keeps the application internal and lets NPM handle the public certificate.
 
 The app sends email for:
 
-- overdue notifications
+- polite 5-minute pre-due reminders to the current holder
+- overdue notifications to Finance
+- optional Senior Pastor alerts when a card exceeds the configured overdue threshold
 - extension request emails to the Senior Pastor
 - approval or rejection emails to the user
+
+The Senior Pastor threshold is configurable in the admin settings page and can also be set with `SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES`.
 
 If the SMTP configuration is not available, email sending is skipped with a clear log message rather than failing the main database transaction.
 

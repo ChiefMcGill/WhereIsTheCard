@@ -36,13 +36,18 @@
                 <label class="form-label">Finance email</label>
                 <input class="form-control" type="email" name="FINANCE_EMAIL" value="{{ settings['FINANCE_EMAIL'] }}" placeholder="finance@solidground.co.za">
             </div>
-            <div class="col-md-12">
+            <div class="col-md-6">
                 <label class="form-label">Senior pastor email</label>
                 <input class="form-control" type="email" name="SENIOR_PASTOR_EMAIL" value="{{ settings['SENIOR_PASTOR_EMAIL'] }}" placeholder="seniorpastor@solidground.co.za">
             </div>
+            <div class="col-md-6">
+                <label class="form-label">Senior pastor alert threshold (minutes)</label>
+                <input class="form-control" type="number" min="0" step="5" name="SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES" value="{{ settings['SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES'] }}" placeholder="60">
+            </div>
         </div>
-        <div class="mt-4">
+        <div class="mt-4 d-flex gap-2">
             <button type="submit" class="btn btn-primary">Save email settings</button>
+            <button type="submit" formaction="{{ url_for('admin_settings_test_email') }}" class="btn btn-outline-secondary">Send test email</button>
         </div>
     </form>
 </div>

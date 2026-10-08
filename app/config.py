@@ -14,7 +14,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "solid-ground-card-secret")
     INITIAL_ADMIN_NAME = "Church Admin"
-    INITIAL_ADMIN_EMAIL = "production@solidground.co.za"
+    INITIAL_ADMIN_EMAIL = "server@solidground.co.za"
     INITIAL_ADMIN_PASSWORD = "CardAdmin123"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'app.db'}")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -32,3 +32,4 @@ class Config:
     MAIL_FROM = os.getenv("MAIL_FROM", "no-reply@solidground.co.za")
     FINANCE_EMAIL = os.getenv("FINANCE_EMAIL", "finance@solidground.co.za")
     SENIOR_PASTOR_EMAIL = os.getenv("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za")
+    SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES = int(os.getenv("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", "60"))

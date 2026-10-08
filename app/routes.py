@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
@@ -32,12 +32,6 @@ def _require_roles(*roles):
 
 def _parse_requested_minutes(form):
     selected = form.get("duration_minutes")
-    custom = form.get("custom_duration_minutes")
-    if custom:
-        try:
-            return max(15, int(custom))
-        except ValueError:
-            return None
     if selected:
         try:
             return max(15, int(selected))
@@ -380,6 +374,9 @@ def register_routes(app):
             user.role = new_role
             db.session.add(user)
             db.session.commit()
+            if str(user.id) == session.get("_user_id"):
+                session.clear()
+                login_user(user, remember=False)
             log_event(current_user, "user_role_changed", "user", user.id, f"Changed role to {new_role}")
             flash(f"Role changed to {new_role}.", "success")
         return redirect(url_for("admin_users"))
@@ -421,6 +418,7 @@ def register_routes(app):
                 "MAIL_FROM": request.form.get("MAIL_FROM", "").strip(),
                 "FINANCE_EMAIL": request.form.get("FINANCE_EMAIL", "").strip(),
                 "SENIOR_PASTOR_EMAIL": request.form.get("SENIOR_PASTOR_EMAIL", "").strip(),
+                "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": request.form.get("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", "60").strip(),
             }
             for key, value in settings.items():
                 AppSetting.set(key, value)
@@ -437,9 +435,33 @@ def register_routes(app):
                 "MAIL_FROM": "no-reply@solidground.co.za",
                 "FINANCE_EMAIL": "finance@solidground.co.za",
                 "SENIOR_PASTOR_EMAIL": "seniorpastor@solidground.co.za",
+                "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": "60",
             }.items()
         }
         return render_template("admin_settings.html", settings=values)
+
+    @app.route("/admin/settings/test-email", methods=["POST"])
+    @login_required
+    def admin_settings_test_email():
+        if current_user.role != "ADMIN":
+            abort(403)
+
+        target_email = AppSetting.get("FINANCE_EMAIL") or current_user.email or AppSetting.get("MAIL_FROM")
+        if not target_email:
+            flash("Set a finance email or sender address before sending a test email.", "warning")
+            return redirect(url_for("admin_settings"))
+
+        subject = "Where Is The Card test email"
+        body = (
+            "This is a test email from the Where Is The Card system.\n\n"
+            "If you received this, the email settings are working correctly."
+        )
+        sent = send_email(subject, body, target_email, sender=AppSetting.get("MAIL_FROM") or None)
+        if sent:
+            flash(f"Test email sent to {target_email}.", "success")
+        else:
+            flash("The test email could not be sent. Please check the SMTP settings and server connection.", "warning")
+        return redirect(url_for("admin_settings"))
 
     @app.route("/admin/history")
     @login_required

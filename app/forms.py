@@ -13,5 +13,4 @@ class CheckoutForm(FlaskForm):
     card_id = IntegerField("Card", validators=[DataRequired()])
     purpose = StringField("Purpose", validators=[DataRequired(), Length(min=2, max=300)])
     duration_minutes = IntegerField("Expected duration", validators=[Optional()])
-    custom_duration_minutes = IntegerField("Custom duration", validators=[Optional()])
     submit = SubmitField("Check out")

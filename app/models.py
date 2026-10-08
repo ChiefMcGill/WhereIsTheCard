@@ -63,6 +63,16 @@ class AppSetting(db.Model):
         return setting.value
 
     @staticmethod
+    def get_int(key, default=0):
+        value = AppSetting.get(key)
+        if value is None:
+            return int(default)
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return int(default)
+
+    @staticmethod
     def set(key, value):
         setting = AppSetting.query.filter_by(key=key).first()
         if setting is None:
@@ -126,6 +136,8 @@ class Checkout(db.Model):
     due_at = db.Column(db.DateTime, nullable=False)
     returned_at = db.Column(db.DateTime, nullable=True)
     overdue_notified = db.Column(db.Boolean, default=False, nullable=False)
+    reminder_sent = db.Column(db.Boolean, default=False, nullable=False)
+    senior_pastor_notified = db.Column(db.Boolean, default=False, nullable=False)
     overdue_reason = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 

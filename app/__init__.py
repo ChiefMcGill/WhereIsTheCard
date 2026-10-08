@@ -15,6 +15,16 @@ def ensure_user_schema():
         db.session.commit()
 
 
+def ensure_checkout_schema():
+    inspector = inspect(db.engine)
+    columns = {column["name"] for column in inspector.get_columns("checkouts")}
+    if "reminder_sent" not in columns:
+        db.session.execute(text("ALTER TABLE checkouts ADD COLUMN reminder_sent BOOLEAN NOT NULL DEFAULT 0"))
+    if "senior_pastor_notified" not in columns:
+        db.session.execute(text("ALTER TABLE checkouts ADD COLUMN senior_pastor_notified BOOLEAN NOT NULL DEFAULT 0"))
+    db.session.commit()
+
+
 def ensure_default_settings(app):
     defaults = {
         "SMTP_HOST": app.config.get("EMAIL_HOST") or "",
@@ -25,6 +35,7 @@ def ensure_default_settings(app):
         "MAIL_FROM": app.config.get("MAIL_FROM", "no-reply@solidground.co.za"),
         "FINANCE_EMAIL": app.config.get("FINANCE_EMAIL", "finance@solidground.co.za"),
         "SENIOR_PASTOR_EMAIL": app.config.get("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za"),
+        "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": str(app.config.get("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", 60)),
     }
     for key, value in defaults.items():
         if AppSetting.get(key) is None and value not in (None, ""):
@@ -33,7 +44,7 @@ def ensure_default_settings(app):
 
 def ensure_default_admin(app):
     admin_name = app.config.get("INITIAL_ADMIN_NAME", "Church Admin")
-    admin_email = (app.config.get("INITIAL_ADMIN_EMAIL", "production@solidground.co.za") or "production@solidground.co.za").strip().lower()
+    admin_email = (app.config.get("INITIAL_ADMIN_EMAIL", "server@solidground.co.za") or "server@solidground.co.za").strip().lower()
     admin_password = app.config.get("INITIAL_ADMIN_PASSWORD", "CardAdmin123")
 
     admin = User.query.filter_by(email=admin_email).first()
@@ -92,6 +103,7 @@ def create_app(test_config=None):
     with app.app_context():
         db.create_all()
         ensure_user_schema()
+        ensure_checkout_schema()
         ensure_default_cards()
         ensure_default_settings(app)
         ensure_default_admin(app)

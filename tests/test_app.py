@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 
 from app import create_app, ensure_default_admin
 from app.extensions import db
-from app.models import Card, Checkout, ExtensionRequest, User, ensure_default_cards, log_event
+from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, ensure_default_cards, log_event
+from app.tasks.overdue import check_overdue_checkouts
 
 
 def build_app():
@@ -48,22 +49,99 @@ def test_user_can_log_in_and_invalid_password_fails():
 def test_initial_admin_must_change_password_on_first_login():
     app = build_app()
     with app.app_context():
-        admin = User.query.filter_by(email="production@solidground.co.za").first()
+        admin = User.query.filter_by(email="server@solidground.co.za").first()
         assert admin is not None
         assert admin.check_password("CardAdmin123")
         assert admin.must_change_password is True
 
     with app.test_client() as client:
-        response = client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        response = client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
         assert response.status_code == 200
         assert b"change your password" in response.data.lower()
+
+
+def test_checkout_form_has_no_custom_duration_and_default_admin_email_is_server():
+    app = build_app()
+    with app.app_context():
+        admin = User.query.filter_by(email="server@solidground.co.za").first()
+        assert admin is not None
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post("/change-password", data={"new_password": "NewAdminPass123", "confirm_password": "NewAdminPass123"}, follow_redirects=True)
+        page = client.get("/checkout")
+        assert page.status_code == 200
+        assert b"Custom duration" not in page.data
+        assert b"30 minutes" in page.data
+
+
+def test_overdue_worker_sends_a_polite_reminder_before_due_and_requires_senior_pastor_threshold():
+    app = build_app()
+    with app.app_context():
+        user = create_user("rachel@church.org", "Rachel", "USER", "pw")
+        reminder_card = Card(name="Reminder Card", active=True)
+        overdue_card = Card(name="Overdue Card", active=True)
+        db.session.add_all([reminder_card, overdue_card])
+        db.session.commit()
+
+        AppSetting.set("FINANCE_EMAIL", "finance@solidground.co.za")
+        AppSetting.set("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za")
+        AppSetting.set("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", "45")
+
+        reminder_checkout = Checkout(
+            card_id=reminder_card.id,
+            user_id=user.id,
+            purpose="Church event",
+            checked_out_at=datetime.utcnow() - timedelta(minutes=55),
+            original_due_at=datetime.utcnow() + timedelta(minutes=4),
+            due_at=datetime.utcnow() + timedelta(minutes=4),
+            is_active=True,
+            reminder_sent=False,
+            overdue_notified=False,
+            senior_pastor_notified=False,
+        )
+        db.session.add(reminder_checkout)
+
+        overdue_checkout = Checkout(
+            card_id=overdue_card.id,
+            user_id=user.id,
+            purpose="Church event",
+            checked_out_at=datetime.utcnow() - timedelta(hours=2),
+            original_due_at=datetime.utcnow() - timedelta(minutes=90),
+            due_at=datetime.utcnow() - timedelta(minutes=90),
+            is_active=True,
+            reminder_sent=False,
+            overdue_notified=False,
+            senior_pastor_notified=False,
+        )
+        db.session.add(overdue_checkout)
+        db.session.commit()
+
+    called = []
+
+    def fake_send_email(subject, body, recipient, **kwargs):
+        called.append((subject, recipient, body))
+        return True
+
+    from app import tasks as overdue_tasks
+    original = overdue_tasks.overdue.send_email
+    overdue_tasks.overdue.send_email = fake_send_email
+    try:
+        with app.app_context():
+            check_overdue_checkouts()
+    finally:
+        overdue_tasks.overdue.send_email = original
+
+    assert any("Reminder" in subject for subject, _, _ in called)
+    assert any("OVERDUE" in subject for subject, _, _ in called)
+    assert any("Senior pastor alert" in subject for subject, _, _ in called)
 
 
 def test_admin_can_create_other_users_and_admins_with_default_passwords():
     app = build_app()
 
     with app.test_client() as client:
-        login = client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        login = client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
         assert login.status_code == 200
         assert b"change your password" in login.data.lower()
 
@@ -101,7 +179,7 @@ def test_admin_can_create_other_users_and_admins_with_default_passwords():
         assert b"change your password" in login.data.lower()
 
     with app.test_client() as client:
-        client.post("/login", data={"email": "production@solidground.co.za", "password": "NewAdminPass123"}, follow_redirects=True)
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "NewAdminPass123"}, follow_redirects=True)
         client.post(
             "/admin/users",
             data={
@@ -123,7 +201,7 @@ def test_admin_nav_and_email_settings_are_available_in_ui():
     app = build_app()
 
     with app.test_client() as client:
-        client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
         client.post(
             "/change-password",
             data={
