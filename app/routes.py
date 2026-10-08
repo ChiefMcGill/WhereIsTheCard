@@ -47,6 +47,11 @@ def _parse_requested_minutes(form):
 
 
 def register_routes(app):
+    @app.before_request
+    def enforce_password_change():
+        if current_user.is_authenticated and current_user.must_change_password and request.path not in {"/change-password", "/logout"}:
+            return redirect(url_for("change_password"))
+
     @app.route("/")
     def dashboard():
         cards = Card.query.order_by(Card.id).all()
@@ -55,6 +60,8 @@ def register_routes(app):
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if current_user.is_authenticated:
+            if current_user.must_change_password:
+                return redirect(url_for("change_password"))
             return redirect(url_for("checkout"))
 
         form = LoginForm()
@@ -67,6 +74,9 @@ def register_routes(app):
                 db.session.add(user)
                 db.session.commit()
                 log_event(user, "login", "user", user.id, "Successful login")
+                if user.must_change_password:
+                    flash("For security, please change your password before continuing.", "warning")
+                    return redirect(url_for("change_password"))
                 next_page = request.args.get("next")
                 return redirect(next_page or url_for("checkout"))
 
@@ -74,6 +84,33 @@ def register_routes(app):
             flash("Invalid email or password.", "danger")
 
         return render_template("login.html", form=form)
+
+    @app.route("/change-password", methods=["GET", "POST"])
+    @login_required
+    def change_password():
+        if request.method == "POST":
+            new_password = request.form.get("new_password") or ""
+            confirm_password = request.form.get("confirm_password") or ""
+
+            if len(new_password) < 6:
+                flash("Password must be at least 6 characters.", "warning")
+            elif new_password != confirm_password:
+                flash("Passwords do not match.", "warning")
+            elif current_user.must_change_password is False and not current_user.check_password(request.form.get("current_password") or ""):
+                flash("Your current password is incorrect.", "danger")
+            else:
+                if current_user.must_change_password and new_password == request.form.get("current_password"):
+                    flash("Please choose a new password different from your temporary password.", "warning")
+                else:
+                    current_user.set_password(new_password)
+                    current_user.must_change_password = False
+                    db.session.add(current_user)
+                    db.session.commit()
+                    log_event(current_user, "password_changed", "user", current_user.id, "Password changed via change-password flow")
+                    flash("Password updated successfully.", "success")
+                    return redirect(url_for("checkout"))
+
+        return render_template("change_password.html", must_change=current_user.must_change_password)
 
     @app.route("/logout")
     @login_required
@@ -307,12 +344,12 @@ def register_routes(app):
                 if User.query.filter_by(email=email).first():
                     flash("A user with that email already exists.", "warning")
                 else:
-                    user = User(name=name, email=email, role=role, active=True)
+                    user = User(name=name, email=email, role=role, active=True, must_change_password=True)
                     user.set_password(password)
                     db.session.add(user)
                     db.session.commit()
-                    log_event(current_user, "user_created", "user", user.id, f"Created user {user.name}")
-                    flash("User created.", "success")
+                    log_event(current_user, "user_created", "user", user.id, f"Created user {user.name} with role {user.role}")
+                    flash(f"User created with a temporary password. They will be prompted to change it on first login.", "success")
             else:
                 flash("Please fill in all required user fields.", "warning")
 
@@ -428,6 +465,7 @@ def register_routes(app):
             flash("Password must be at least 6 characters.", "warning")
             return redirect(url_for("admin_users"))
         user.set_password(password)
+        user.must_change_password = True
         db.session.add(user)
         db.session.commit()
         log_event(current_user, "password_reset", "user", user.id, f"Password reset for {user.name}")

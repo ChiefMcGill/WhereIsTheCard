@@ -1,7 +1,7 @@
 import html
 from datetime import datetime, timedelta
 
-from app import create_app
+from app import create_app, ensure_default_admin
 from app.extensions import db
 from app.models import Card, Checkout, ExtensionRequest, User, ensure_default_cards, log_event
 
@@ -17,6 +17,7 @@ def build_app():
         db.drop_all()
         db.create_all()
         ensure_default_cards()
+        ensure_default_admin(app)
     return app
 
 
@@ -42,6 +43,80 @@ def test_user_can_log_in_and_invalid_password_fails():
         bad = client.post("/login", data={"email": "john@church.org", "password": "wrong"}, follow_redirects=True)
         assert bad.status_code == 200
         assert b"Invalid email or password" in bad.data
+
+
+def test_initial_admin_must_change_password_on_first_login():
+    app = build_app()
+    with app.app_context():
+        admin = User.query.filter_by(email="production@solidground.co.za").first()
+        assert admin is not None
+        assert admin.check_password("CardAdmin123")
+        assert admin.must_change_password is True
+
+    with app.test_client() as client:
+        response = client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"change your password" in response.data.lower()
+
+
+def test_admin_can_create_other_users_and_admins_with_default_passwords():
+    app = build_app()
+
+    with app.test_client() as client:
+        login = client.post("/login", data={"email": "production@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        assert login.status_code == 200
+        assert b"change your password" in login.data.lower()
+
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        response = client.post(
+            "/admin/users",
+            data={
+                "name": "Assistant Admin",
+                "email": "assistant.admin@church.org",
+                "password": "TempPass123",
+                "role": "ADMIN",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b"user created with a temporary password" in response.data.lower()
+
+        user = User.query.filter_by(email="assistant.admin@church.org").first()
+        assert user is not None
+        assert user.role == "ADMIN"
+        assert user.must_change_password is True
+        assert user.check_password("TempPass123")
+
+        client.get("/logout")
+        login = client.post("/login", data={"email": "assistant.admin@church.org", "password": "TempPass123"}, follow_redirects=True)
+        assert login.status_code == 200
+        assert b"change your password" in login.data.lower()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "production@solidground.co.za", "password": "NewAdminPass123"}, follow_redirects=True)
+        client.post(
+            "/admin/users",
+            data={
+                "name": "Volunteer User",
+                "email": "volunteer@church.org",
+                "password": "DefaultVol123",
+                "role": "USER",
+            },
+            follow_redirects=True,
+        )
+        user = User.query.filter_by(email="volunteer@church.org").first()
+        assert user is not None
+        assert user.role == "USER"
+        assert user.must_change_password is True
+        assert user.check_password("DefaultVol123")
 
 
 def test_available_card_can_be_checked_out_and_cannot_be_checked_out_twice():

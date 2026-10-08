@@ -1,4 +1,5 @@
 from flask import Flask
+from sqlalchemy import inspect, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import Config
@@ -6,19 +7,44 @@ from app.extensions import csrf, db, login_manager, migrate
 from app.models import Card, User, ensure_default_cards
 
 
+def ensure_user_schema():
+    inspector = inspect(db.engine)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "must_change_password" not in columns:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"))
+        db.session.commit()
+
+
 def ensure_default_admin(app):
-    if User.query.count() > 0:
+    admin_name = app.config.get("INITIAL_ADMIN_NAME", "Church Admin")
+    admin_email = (app.config.get("INITIAL_ADMIN_EMAIL", "production@solidground.co.za") or "production@solidground.co.za").strip().lower()
+    admin_password = app.config.get("INITIAL_ADMIN_PASSWORD", "CardAdmin123")
+
+    admin = User.query.filter_by(email=admin_email).first()
+    if admin is None:
+        admin = User.query.filter_by(role="ADMIN").order_by(User.id.asc()).first()
+
+    if admin is None:
+        admin = User(name=admin_name, email=admin_email, role="ADMIN", active=True, must_change_password=True)
+        admin.set_password(admin_password)
+        db.session.add(admin)
+        db.session.commit()
+        app.logger.warning("Initial admin created with email %s. Please change your password on first login.", admin_email)
         return
 
-    admin_name = app.config.get("INITIAL_ADMIN_NAME", "Church Admin")
-    admin_email = (app.config.get("INITIAL_ADMIN_EMAIL", "admin@solidground.co.za") or "admin@solidground.co.za").strip().lower()
-    admin_password = app.config.get("INITIAL_ADMIN_PASSWORD", "ChangeMeNow123!")
+    admin.name = admin_name
+    admin.email = admin_email
+    admin.role = "ADMIN"
+    admin.active = True
+    if not admin.password_hash:
+        admin.set_password(admin_password)
+        admin.must_change_password = True
 
-    admin = User(name=admin_name, email=admin_email, role="ADMIN", active=True)
-    admin.set_password(admin_password)
+    if admin.email == admin_email and admin.role == "ADMIN" and admin.last_login is None and admin.check_password(admin_password):
+        admin.must_change_password = True
+
     db.session.add(admin)
     db.session.commit()
-    app.logger.warning("Initial admin created with email %s. Change the password in the web UI after logging in.", admin_email)
 
 
 def create_app(test_config=None):
@@ -49,6 +75,7 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
+        ensure_user_schema()
         ensure_default_cards()
         ensure_default_admin(app)
 

@@ -14,7 +14,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "solid-ground-card-secret")
     INITIAL_ADMIN_NAME = "Church Admin"
-    INITIAL_ADMIN_EMAIL = "admin@solidground.co.za"
+    INITIAL_ADMIN_EMAIL = "production@solidground.co.za"
     INITIAL_ADMIN_PASSWORD = "CardAdmin123"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'app.db'}")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
