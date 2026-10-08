@@ -11,14 +11,6 @@ services:
       DATABASE_URL: sqlite:////data/app.db
       SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-15}
       CARD_CHECKOUT_MINUTES: ${CARD_CHECKOUT_MINUTES:-60}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_USE_TLS: ${SMTP_USE_TLS}
-      MAIL_FROM: ${MAIL_FROM}
-      FINANCE_EMAIL: ${FINANCE_EMAIL:-finance@solidground.co.za}
-      SENIOR_PASTOR_EMAIL: ${SENIOR_PASTOR_EMAIL}
     volumes:
       - /mnt/docker/docker/data/whereisthecard:/data
     ports:
@@ -39,14 +31,6 @@ services:
       DATABASE_URL: sqlite:////data/app.db
       SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-15}
       CARD_CHECKOUT_MINUTES: ${CARD_CHECKOUT_MINUTES:-60}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_USE_TLS: ${SMTP_USE_TLS}
-      MAIL_FROM: ${MAIL_FROM}
-      FINANCE_EMAIL: ${FINANCE_EMAIL:-finance@solidground.co.za}
-      SENIOR_PASTOR_EMAIL: ${SENIOR_PASTOR_EMAIL}
     volumes:
       - /mnt/docker/docker/data/whereisthecard:/data
     networks:
