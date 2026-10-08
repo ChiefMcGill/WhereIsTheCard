@@ -54,6 +54,10 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'Disable' if user.active else 'Enable' }}</button>
                 </form>
+                <form method="post" action="{{ url_for('delete_user', user_id=user.id) }}" class="d-inline" onsubmit="return confirm('Permanently delete this user? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                </form>
                 <form method="post" action="{{ url_for('admin_reset_password', user_id=user.id) }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="password" name="password" class="form-control form-control-sm d-inline-block w-auto" placeholder="New pass" required>

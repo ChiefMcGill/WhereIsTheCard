@@ -378,6 +378,28 @@ def test_send_email_logs_smtp_failures_with_context(caplog, monkeypatch):
         assert "user@example.com" in caplog.text
 
 
+def test_admin_can_permanently_delete_a_user():
+    app = build_app()
+    with app.app_context():
+        create_user("remove@church.org", "Remove Me", "USER", "pw")
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        response = client.post("/admin/users/2/delete", follow_redirects=True)
+        assert response.status_code == 200
+        assert b"permanently deleted" in response.data.lower()
+        assert User.query.filter_by(email="remove@church.org").first() is None
+
+
 def test_admin_access_is_restricted_to_admins():
     app = build_app()
     with app.app_context():

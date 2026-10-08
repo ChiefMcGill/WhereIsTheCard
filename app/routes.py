@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
 from app.forms import LoginForm
-from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, log_event
+from app.models import AppSetting, AuditLog, Card, Checkout, ExtensionRequest, User, log_event
 from app.notifications.email import send_email
 
 
@@ -361,6 +361,38 @@ def register_routes(app):
         db.session.commit()
         log_event(current_user, "user_status_changed", "user", user.id, f"Set active={user.active}")
         flash(f"User status updated for {user.name}.", "success")
+        return redirect(url_for("admin_users"))
+
+    @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+    @login_required
+    def delete_user(user_id):
+        if current_user.role != "ADMIN":
+            abort(403)
+
+        user = User.query.get_or_404(user_id)
+
+        if user.id == current_user.id:
+            flash("You cannot permanently delete your own account.", "warning")
+            return redirect(url_for("admin_users"))
+
+        if user.email == "server@solidground.co.za":
+            flash("The default administrator account cannot be permanently deleted.", "warning")
+            return redirect(url_for("admin_users"))
+
+        if Checkout.query.filter_by(user_id=user.id, returned_at=None).first():
+            flash("Cannot permanently delete a user with an active card checkout. Return the card first.", "warning")
+            return redirect(url_for("admin_users"))
+
+        ExtensionRequest.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        ExtensionRequest.query.filter_by(approving_pastor_id=user.id).update({"approving_pastor_id": None}, synchronize_session=False)
+        Checkout.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        AuditLog.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+        db.session.delete(user)
+        db.session.commit()
+
+        log_event(current_user, "user_deleted", "user", user.id, f"Permanently deleted user {user.name} ({user.email})")
+        flash(f"User {user.name} was permanently deleted.", "success")
         return redirect(url_for("admin_users"))
 
     @app.route("/admin/users/<int:user_id>/role", methods=["POST"])
