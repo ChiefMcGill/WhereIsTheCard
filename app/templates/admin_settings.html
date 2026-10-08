@@ -40,9 +40,18 @@
                 <label class="form-label">Senior pastor email</label>
                 <input class="form-control" type="email" name="SENIOR_PASTOR_EMAIL" value="{{ settings['SENIOR_PASTOR_EMAIL'] }}" placeholder="seniorpastor@solidground.co.za">
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
+                <label class="form-label">Timezone offset (hours)</label>
+                <input class="form-control" type="number" min="-12" max="14" step="1" name="TIMEZONE_OFFSET_HOURS" value="{{ settings['TIMEZONE_OFFSET_HOURS'] }}" placeholder="2">
+            </div>
+            <div class="col-md-3">
                 <label class="form-label">Senior pastor alert threshold (minutes)</label>
                 <input class="form-control" type="number" min="0" step="5" name="SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES" value="{{ settings['SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES'] }}" placeholder="60">
+            </div>
+            <div class="col-md-12">
+                <label class="form-label">Available checkout duration options (minutes, comma separated)</label>
+                <input class="form-control" type="text" name="CHECKOUT_DURATION_OPTIONS" value="{{ settings['CHECKOUT_DURATION_OPTIONS'] }}" placeholder="30,60,120,240">
+                <div class="form-text">Examples: 30,60,120,240 or 15,45,90,180</div>
             </div>
         </div>
         <div class="mt-4 d-flex gap-2">

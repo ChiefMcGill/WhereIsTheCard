@@ -4,14 +4,14 @@ import time
 from datetime import datetime
 
 from app.extensions import db
-from app.models import AppSetting, AuditLog, Checkout, log_event
+from app.models import AppSetting, AuditLog, Checkout, local_now, log_event
 from app.notifications.email import send_email
 
 logger = logging.getLogger(__name__)
 
 
 def check_overdue_checkouts():
-    now = datetime.utcnow()
+    now = local_now()
     active_checkouts = Checkout.query.filter(Checkout.returned_at.is_(None)).all()
     for checkout in active_checkouts:
         card = checkout.card

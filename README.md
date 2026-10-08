@@ -76,6 +76,7 @@ The application reads values from environment variables. The example file includ
 - `DATABASE_URL`
 - `SESSION_TIMEOUT_MINUTES`
 - `CARD_CHECKOUT_MINUTES`
+- `TIMEZONE_OFFSET_HOURS` (set to `2` for South Africa time)
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_USERNAME`

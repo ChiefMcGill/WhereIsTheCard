@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask_login import UserMixin
 from sqlalchemy import Index, text
@@ -11,8 +11,27 @@ from app.extensions import db
 ROLE_CHOICES = ("USER", "FINANCE", "SENIOR_PASTOR", "ADMIN")
 
 
+def timezone_offset_hours():
+    value = os.getenv("TIMEZONE_OFFSET_HOURS", "2")
+    try:
+        from app.models import AppSetting
+        db_value = AppSetting.get("TIMEZONE_OFFSET_HOURS")
+        if db_value is not None:
+            value = db_value
+    except Exception:
+        pass
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return 2
+
+
 def utc_now():
     return datetime.utcnow()
+
+
+def local_now():
+    return datetime.utcnow() + timedelta(hours=timezone_offset_hours())
 
 
 class User(db.Model, UserMixin):
@@ -114,6 +133,8 @@ class Card(db.Model):
             return "AVAILABLE"
         if current.is_overdue:
             return "OVERDUE"
+        if current.is_indefinite:
+            return "INDEFINITE"
         return "CHECKED OUT"
 
     @property
@@ -132,9 +153,11 @@ class Checkout(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     purpose = db.Column(db.String(300), nullable=False)
     checked_out_at = db.Column(db.DateTime, default=utc_now, nullable=False)
-    original_due_at = db.Column(db.DateTime, nullable=False)
-    due_at = db.Column(db.DateTime, nullable=False)
+    original_due_at = db.Column(db.DateTime, nullable=True)
+    due_at = db.Column(db.DateTime, nullable=True)
     returned_at = db.Column(db.DateTime, nullable=True)
+    indefinite_booking = db.Column(db.Boolean, default=False, nullable=False)
+    booking_note = db.Column(db.Text, nullable=True)
     overdue_notified = db.Column(db.Boolean, default=False, nullable=False)
     reminder_sent = db.Column(db.Boolean, default=False, nullable=False)
     senior_pastor_notified = db.Column(db.Boolean, default=False, nullable=False)
@@ -155,13 +178,19 @@ class Checkout(db.Model):
     )
 
     @property
+    def is_indefinite(self):
+        return self.indefinite_booking is True
+
+    @property
     def is_overdue(self):
-        return self.returned_at is None and self.due_at < datetime.utcnow()
+        return self.returned_at is None and not self.is_indefinite and self.due_at is not None and self.due_at < local_now()
 
     @property
     def current_status(self):
         if self.returned_at is not None:
             return "RETURNED"
+        if self.is_indefinite:
+            return "INDEFINITE"
         if self.is_overdue:
             return "OVERDUE"
         return "CHECKED OUT"

@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
 from app.forms import LoginForm
-from app.models import AppSetting, AuditLog, Card, Checkout, ExtensionRequest, User, log_event
+from app.models import AppSetting, AuditLog, Card, Checkout, ExtensionRequest, User, local_now, log_event
 from app.notifications.email import send_email
 
 
@@ -40,6 +40,21 @@ def _parse_requested_minutes(form):
     return int(os.getenv("CARD_CHECKOUT_MINUTES", "60"))
 
 
+def _checkout_duration_options():
+    raw_value = AppSetting.get("CHECKOUT_DURATION_OPTIONS", "30,60,120,240")
+    values = []
+    for part in str(raw_value).split(","):
+        try:
+            minutes = int(str(part).strip())
+        except (TypeError, ValueError):
+            continue
+        if minutes > 0 and minutes not in values:
+            values.append(minutes)
+    if not values:
+        return [30, 60, 120, 240]
+    return values
+
+
 def register_routes(app):
     @app.before_request
     def enforce_password_change():
@@ -49,7 +64,8 @@ def register_routes(app):
     @app.route("/")
     def dashboard():
         cards = Card.query.order_by(Card.id).all()
-        return render_template("dashboard.html", cards=cards, current_user=current_user)
+        duration_options = _checkout_duration_options()
+        return render_template("dashboard.html", cards=cards, current_user=current_user, duration_options=duration_options)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -64,7 +80,7 @@ def register_routes(app):
             user = User.query.filter_by(email=email).first()
             if user and user.active and user.check_password(form.password.data):
                 login_user(user, remember=False)
-                user.last_login = datetime.utcnow()
+                user.last_login = local_now()
                 db.session.add(user)
                 db.session.commit()
                 log_event(user, "login", "user", user.id, "Successful login")
@@ -140,19 +156,28 @@ def register_routes(app):
                     flash("Please enter a purpose for the checkout.", "warning")
                     return redirect(url_for("checkout"))
 
-                duration_minutes = _parse_requested_minutes(request.form)
-                if duration_minutes is None:
-                    duration_minutes = int(os.getenv("CARD_CHECKOUT_MINUTES", "60"))
+                booking_note = (request.form.get("booking_note") or "").strip()
+                is_indefinite = current_user.role in {"ADMIN", "SENIOR_PASTOR"} and request.form.get("indefinite_booking") == "on"
+                if is_indefinite:
+                    due_at = None
+                    booking_note = booking_note or "Leadership booking - no expiry set."
+                else:
+                    duration_minutes = _parse_requested_minutes(request.form)
+                    if duration_minutes is None:
+                        duration_minutes = int(os.getenv("CARD_CHECKOUT_MINUTES", "60"))
+                    due_at = local_now() + timedelta(minutes=duration_minutes)
+                    booking_note = None if not booking_note else booking_note
 
-                due_at = datetime.utcnow() + timedelta(minutes=duration_minutes)
                 checkout = Checkout(
                     card_id=card.id,
                     user_id=current_user.id,
                     purpose=purpose,
-                    checked_out_at=datetime.utcnow(),
+                    checked_out_at=local_now(),
                     original_due_at=due_at,
                     due_at=due_at,
                     returned_at=None,
+                    indefinite_booking=is_indefinite,
+                    booking_note=booking_note,
                     overdue_notified=False,
                     overdue_reason=None,
                     is_active=True,
@@ -178,7 +203,7 @@ def register_routes(app):
                     flash("You cannot return another person's card.", "danger")
                     return redirect(url_for("checkout"))
 
-                checkout.returned_at = datetime.utcnow()
+                checkout.returned_at = local_now()
                 checkout.is_active = False
                 db.session.add(checkout)
                 db.session.commit()
@@ -242,7 +267,8 @@ def register_routes(app):
                 flash("Your extension request has been sent to the Senior Pastor.", "success")
                 return redirect(url_for("checkout"))
 
-        return render_template("checkout.html", cards=cards, current_user=current_user, checkout_to_confirm=None, confirm_return=False)
+        duration_options = _checkout_duration_options()
+        return render_template("checkout.html", cards=cards, current_user=current_user, checkout_to_confirm=None, confirm_return=False, duration_options=duration_options)
 
     @app.route("/history")
     @login_required
@@ -271,7 +297,7 @@ def register_routes(app):
             abort(400)
 
         decision_note = request.form.get("decision_notes") or ""
-        now_time = datetime.utcnow()
+        now_time = local_now()
 
         if decision == "approve":
             extension.status = "APPROVED"
@@ -454,6 +480,8 @@ def register_routes(app):
                 "MAIL_FROM": request.form.get("MAIL_FROM", "").strip(),
                 "FINANCE_EMAIL": request.form.get("FINANCE_EMAIL", "").strip(),
                 "SENIOR_PASTOR_EMAIL": request.form.get("SENIOR_PASTOR_EMAIL", "").strip(),
+                "TIMEZONE_OFFSET_HOURS": request.form.get("TIMEZONE_OFFSET_HOURS", "2").strip(),
+                "CHECKOUT_DURATION_OPTIONS": request.form.get("CHECKOUT_DURATION_OPTIONS", "30,60,120,240").strip(),
                 "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": request.form.get("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", "60").strip(),
             }
             for key, value in settings.items():
@@ -471,6 +499,8 @@ def register_routes(app):
                 "MAIL_FROM": "no-reply@solidground.co.za",
                 "FINANCE_EMAIL": "finance@solidground.co.za",
                 "SENIOR_PASTOR_EMAIL": "seniorpastor@solidground.co.za",
+                "TIMEZONE_OFFSET_HOURS": "2",
+                "CHECKOUT_DURATION_OPTIONS": "30,60,120,240",
                 "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": "60",
             }.items()
         }
@@ -531,7 +561,7 @@ def register_routes(app):
             log_event(current_user, "overdue_reason_updated", "checkout", checkout.id, checkout.overdue_reason)
             flash("Overdue reason saved.", "success")
 
-        overdue_checkouts = Checkout.query.filter(Checkout.returned_at.is_(None), Checkout.due_at < datetime.utcnow()).order_by(Checkout.due_at.asc()).all()
+        overdue_checkouts = Checkout.query.filter(Checkout.returned_at.is_(None), Checkout.due_at < local_now()).order_by(Checkout.due_at.asc()).all()
         return render_template("admin_overdue.html", checkouts=overdue_checkouts)
 
     @app.route("/admin/close_checkout/<int:checkout_id>", methods=["POST"])
@@ -540,7 +570,7 @@ def register_routes(app):
         if current_user.role not in {"ADMIN", "FINANCE"}:
             abort(403)
         checkout = Checkout.query.get_or_404(checkout_id)
-        checkout.returned_at = datetime.utcnow()
+        checkout.returned_at = local_now()
         checkout.is_active = False
         db.session.add(checkout)
         db.session.commit()

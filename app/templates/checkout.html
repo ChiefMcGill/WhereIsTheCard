@@ -41,18 +41,32 @@
                             <div class="mb-3">
                                 <label class="form-label">Expected duration</label>
                                 <select class="form-select" name="duration_minutes">
-                                    <option value="30">30 minutes</option>
-                                    <option value="60" selected>60 minutes</option>
-                                    <option value="120">2 hours</option>
-                                    <option value="240">4 hours</option>
+                                    {% for option in duration_options %}
+                                        <option value="{{ option }}" {% if loop.first %}selected{% endif %}>{{ option }} minutes</option>
+                                    {% endfor %}
                                 </select>
                             </div>
+                            {% if current_user.role in ['ADMIN', 'SENIOR_PASTOR'] %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="indefinite_booking" id="indefinite_booking_{{ card.id }}">
+                                    <label class="form-check-label" for="indefinite_booking_{{ card.id }}">Indefinite booking</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Booking note</label>
+                                    <textarea class="form-control" name="booking_note" rows="2" placeholder="Visible details for the indefinite booking"></textarea>
+                                </div>
+                            {% endif %}
                             <button type="submit" class="btn btn-success w-100">CHECK OUT</button>
                         </form>
                     {% else %}
-                        <div class="status-badge">{% if checkout.is_overdue %}OVERDUE{% else %}CHECKED OUT{% endif %}</div>
+                        <div class="status-badge">{% if checkout.is_overdue %}OVERDUE{% elif checkout.is_indefinite %}INDEFINITE{% else %}CHECKED OUT{% endif %}</div>
                         <p class="mt-3 mb-1"><strong>Currently with:</strong> {{ checkout.user.name }}</p>
-                        <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</p>
+                        {% if checkout.indefinite_booking %}
+                            <p class="mb-1"><strong>Booking note:</strong> {{ checkout.booking_note or 'Leadership booking - no note recorded.' }}</p>
+                            <p class="mb-1"><strong>Expiry:</strong> Indefinite</p>
+                        {% else %}
+                            <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</p>
+                        {% endif %}
                         {% if checkout.user_id == current_user.id %}
                             <p class="text-warning">The card must be returned by the person who checked it out. Do not hand it to another person.</p>
                             <form method="post" class="mt-3">

@@ -199,6 +199,107 @@ def test_admin_can_create_other_users_and_admins_with_default_passwords():
         assert user.check_password("DefaultVol123")
 
 
+def test_admin_can_configure_duration_options_and_user_sees_them():
+    app = build_app()
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+        response = client.post(
+            "/admin/settings",
+            data={
+                "SMTP_HOST": "smtp.example.com",
+                "SMTP_PORT": "587",
+                "SMTP_USERNAME": "mailer@example.com",
+                "SMTP_PASSWORD": "secret-password",
+                "SMTP_USE_TLS": "true",
+                "MAIL_FROM": "no-reply@solidground.co.za",
+                "FINANCE_EMAIL": "finance@solidground.co.za",
+                "SENIOR_PASTOR_EMAIL": "seniorpastor@solidground.co.za",
+                "CHECKOUT_DURATION_OPTIONS": "15,45,90,180",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert AppSetting.get("CHECKOUT_DURATION_OPTIONS") == "15,45,90,180"
+
+        client.get("/logout")
+        user = create_user("checkoutuser@church.org", "Checkout User", "USER", "secret123")
+        login = client.post("/login", data={"email": user.email, "password": "secret123"}, follow_redirects=True)
+        assert login.status_code == 200
+        page = client.get("/checkout")
+        assert b"15 minutes" in page.data
+        assert b"45 minutes" in page.data
+        assert b"30 minutes" not in page.data
+
+
+def test_admin_can_book_a_card_indefinitely_with_a_visible_note():
+    app = build_app()
+    with app.app_context():
+        card = Card.query.first()
+        assert card is not None
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+        response = client.post(
+            "/checkout",
+            data={
+                "action": "checkout",
+                "card_id": "1",
+                "purpose": "Church leadership use",
+                "indefinite_booking": "on",
+                "booking_note": "Awaiting final approval from the board.",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        with app.app_context():
+            checkout = Checkout.query.filter_by(card_id=1).first()
+            assert checkout is not None
+            assert checkout.indefinite_booking is True
+            assert checkout.booking_note == "Awaiting final approval from the board."
+            assert checkout.due_at is None
+
+
+def test_dashboard_available_cards_expand_for_logged_in_users():
+    app = build_app()
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"<details" in page.data.lower()
+        assert b"book out" in page.data.lower()
+
+
+def test_timezone_offset_defaults_to_two_hours():
+    app = build_app()
+    with app.app_context():
+        assert AppSetting.get_int("TIMEZONE_OFFSET_HOURS", 2) == 2
+        assert app.config["TIMEZONE_OFFSET_HOURS"] == 2
+
+
 def test_admin_nav_and_email_settings_are_available_in_ui():
     app = build_app()
 

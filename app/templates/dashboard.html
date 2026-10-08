@@ -9,29 +9,78 @@
     {% for card in cards %}
         {% set checkout = card.current_checkout %}
         <div class="col-12 col-md-6 col-lg-3">
-            <div class="card h-100 status-card {% if checkout is none %}status-available{% elif checkout.is_overdue %}status-overdue{% else %}status-checkedout{% endif %}">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">{{ card.name }}</h5>
-                    <div class='status-badge'>
-                        {% if checkout is none %}
-                            AVAILABLE
-                        {% elif checkout.is_overdue %}
-                            OVERDUE
+            {% if checkout is none and current_user.is_authenticated %}
+                <details class="card h-100 status-card status-available">
+                    <summary class="card-body d-flex flex-column" style="cursor: pointer; list-style: none;">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <h5 class="card-title mb-0">{{ card.name }}</h5>
+                            <span class="badge bg-success-subtle text-success-emphasis">Available</span>
+                        </div>
+                        <p class="mb-0 mt-3">Click to book out.</p>
+                    </summary>
+                    <div class="card-footer bg-white border-0 pt-0">
+                        <form method="post" action="{{ url_for('checkout') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="checkout">
+                            <input type="hidden" name="card_id" value="{{ card.id }}">
+                            <div class="mb-2">
+                                <label class="form-label">Purpose</label>
+                                <input class="form-control" type="text" name="purpose" maxlength="300" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Expected duration</label>
+                                <select class="form-select" name="duration_minutes">
+                                    {% for option in duration_options %}
+                                        <option value="{{ option }}" {% if loop.first %}selected{% endif %}>{{ option }} minutes</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% if current_user.role in ['ADMIN', 'SENIOR_PASTOR'] %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="indefinite_booking" id="dashboard_indefinite_{{ card.id }}">
+                                    <label class="form-check-label" for="dashboard_indefinite_{{ card.id }}">Indefinite booking</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Booking note</label>
+                                    <textarea class="form-control" name="booking_note" rows="2" placeholder="Visible details for the booking"></textarea>
+                                </div>
+                            {% endif %}
+                            <button type="submit" class="btn btn-success w-100">Book out</button>
+                        </form>
+                    </div>
+                </details>
+            {% else %}
+                <div class="card h-100 status-card {% if checkout is none %}status-available{% elif checkout.is_overdue %}status-overdue{% else %}status-checkedout{% endif %}">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">{{ card.name }}</h5>
+                        <div class='status-badge'>
+                            {% if checkout is none %}
+                                AVAILABLE
+                            {% elif checkout.is_overdue %}
+                                OVERDUE
+                            {% elif checkout.is_indefinite %}
+                                INDEFINITE
+                            {% else %}
+                                CHECKED OUT
+                            {% endif %}
+                        </div>
+                        {% if checkout %}
+                            <p class="mb-1"><strong>With:</strong> {{ checkout.user.name }}</p>
+                            {% if checkout.indefinite_booking %}
+                                <p class="mb-1"><strong>Booking note:</strong> {{ checkout.booking_note or 'Leadership booking - no note recorded.' }}</p>
+                                <p class="mb-1"><strong>Expiry:</strong> Indefinite</p>
+                            {% else %}
+                                <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %H:%M') }}</p>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                                <p class="mb-0"><strong>Purpose:</strong> {{ checkout.purpose }}</p>
+                            {% endif %}
                         {% else %}
-                            CHECKED OUT
+                            <p class="mb-0 mt-2">Available for checkout.</p>
                         {% endif %}
                     </div>
-                    {% if checkout %}
-                        <p class="mb-1"><strong>With:</strong> {{ checkout.user.name }}</p>
-                        <p class="mb-1"><strong>Due:</strong> {{ checkout.due_at.strftime('%d %b %H:%M') }}</p>
-                        {% if current_user.is_authenticated %}
-                            <p class="mb-0"><strong>Purpose:</strong> {{ checkout.purpose }}</p>
-                        {% endif %}
-                    {% else %}
-                        <p class="mb-0 mt-2">Available for checkout.</p>
-                    {% endif %}
                 </div>
-            </div>
+            {% endif %}
         </div>
     {% endfor %}
 </div>

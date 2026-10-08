@@ -24,6 +24,7 @@ class Config:
     SESSION_REFRESH_EACH_REQUEST = True
     WTF_CSRF_ENABLED = True
     CARD_CHECKOUT_MINUTES = int(os.getenv("CARD_CHECKOUT_MINUTES", "60"))
+    TIMEZONE_OFFSET_HOURS = int(os.getenv("TIMEZONE_OFFSET_HOURS", "2"))
     EMAIL_HOST = os.getenv("SMTP_HOST")
     EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
     EMAIL_USERNAME = os.getenv("SMTP_USERNAME")

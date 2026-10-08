@@ -22,6 +22,10 @@ def ensure_checkout_schema():
         db.session.execute(text("ALTER TABLE checkouts ADD COLUMN reminder_sent BOOLEAN NOT NULL DEFAULT 0"))
     if "senior_pastor_notified" not in columns:
         db.session.execute(text("ALTER TABLE checkouts ADD COLUMN senior_pastor_notified BOOLEAN NOT NULL DEFAULT 0"))
+    if "indefinite_booking" not in columns:
+        db.session.execute(text("ALTER TABLE checkouts ADD COLUMN indefinite_booking BOOLEAN NOT NULL DEFAULT 0"))
+    if "booking_note" not in columns:
+        db.session.execute(text("ALTER TABLE checkouts ADD COLUMN booking_note TEXT"))
     db.session.commit()
 
 
@@ -35,6 +39,8 @@ def ensure_default_settings(app):
         "MAIL_FROM": app.config.get("MAIL_FROM", "no-reply@solidground.co.za"),
         "FINANCE_EMAIL": app.config.get("FINANCE_EMAIL", "finance@solidground.co.za"),
         "SENIOR_PASTOR_EMAIL": app.config.get("SENIOR_PASTOR_EMAIL", "seniorpastor@solidground.co.za"),
+        "TIMEZONE_OFFSET_HOURS": str(app.config.get("TIMEZONE_OFFSET_HOURS", 2)),
+        "CHECKOUT_DURATION_OPTIONS": "30,60,120,240",
         "SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES": str(app.config.get("SENIOR_PASTOR_NOTIFICATION_THRESHOLD_MINUTES", 60)),
     }
     for key, value in defaults.items():
