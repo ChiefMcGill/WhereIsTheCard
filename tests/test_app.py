@@ -1,6 +1,8 @@
 import html
 from datetime import datetime, timedelta
 
+import pytest
+
 from app import create_app, ensure_default_admin
 from app.extensions import db
 from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, ensure_default_cards, log_event
@@ -350,6 +352,30 @@ def test_overdue_detection_and_reason():
         response = client.post("/admin/overdue", data={"checkout_id": "1", "overdue_reason": "Supplier delayed payment; pastor aware."}, follow_redirects=True)
         assert response.status_code == 200
         assert b"Supplier delayed payment" in response.data
+
+
+def test_send_email_logs_smtp_failures_with_context(caplog, monkeypatch):
+    app = build_app()
+    with app.app_context():
+        AppSetting.set("SMTP_HOST", "smtp.example.com")
+        AppSetting.set("SMTP_PORT", "587")
+        AppSetting.set("SMTP_USERNAME", "mailer@example.com")
+        AppSetting.set("SMTP_USE_TLS", "true")
+        AppSetting.set("MAIL_FROM", "no-reply@solidground.co.za")
+
+        def raise_connection_error(*args, **kwargs):
+            raise OSError("connection refused")
+
+        import app.notifications.email as email_module
+
+        monkeypatch.setattr(email_module.smtplib, "SMTP", raise_connection_error)
+        with caplog.at_level("ERROR"):
+            result = email_module.send_email("Test", "Body", "user@example.com")
+
+        assert result is False
+        assert "SMTP send failed" in caplog.text
+        assert "smtp.example.com" in caplog.text
+        assert "user@example.com" in caplog.text
 
 
 def test_admin_access_is_restricted_to_admins():

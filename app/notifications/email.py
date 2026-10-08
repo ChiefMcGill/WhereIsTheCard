@@ -45,6 +45,15 @@ def send_email(subject, body, recipient, *, sender=None):
 
         logger.info("Email sent successfully to %s", recipient)
         return True
-    except Exception:
-        logger.exception("Failed to send email to %s", recipient)
+    except Exception as exc:
+        logger.exception(
+            "SMTP send failed: host=%s port=%s tls=%s username=%s sender=%s recipient=%s error=%s",
+            host,
+            port,
+            use_tls,
+            username or "(none)",
+            from_addr,
+            recipient,
+            exc,
+        )
         return False
