@@ -13,7 +13,6 @@
                 <select class="form-select" name="role">
                     <option value="USER">USER</option>
                     <option value="FINANCE">FINANCE</option>
-                    <option value="SENIOR_PASTOR">SENIOR_PASTOR</option>
                     <option value="ADMIN">ADMIN</option>
                 </select>
             </div>
@@ -43,7 +42,6 @@
                     <select class="form-select form-select-sm" name="role" onchange="this.form.submit()">
                         <option value="USER" {% if user.role == 'USER' %}selected{% endif %}>USER</option>
                         <option value="FINANCE" {% if user.role == 'FINANCE' %}selected{% endif %}>FINANCE</option>
-                        <option value="SENIOR_PASTOR" {% if user.role == 'SENIOR_PASTOR' %}selected{% endif %}>SENIOR_PASTOR</option>
                         <option value="ADMIN" {% if user.role == 'ADMIN' %}selected{% endif %}>ADMIN</option>
                     </select>
                 </form>

@@ -46,7 +46,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            {% if current_user.role in ['ADMIN', 'SENIOR_PASTOR'] %}
+                            {% if current_user.role == 'ADMIN' %}
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="indefinite_booking" id="indefinite_booking_{{ card.id }}">
                                     <label class="form-check-label" for="indefinite_booking_{{ card.id }}">Indefinite booking</label>

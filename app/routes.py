@@ -30,6 +30,12 @@ def _require_roles(*roles):
     return decorator
 
 
+def _effective_role(role_name):
+    if role_name == "SENIOR_PASTOR":
+        return "ADMIN"
+    return role_name
+
+
 def _parse_requested_minutes(form):
     selected = form.get("duration_minutes")
     if selected:
@@ -63,7 +69,7 @@ def register_routes(app):
 
     @app.route("/")
     def dashboard():
-        cards = Card.query.order_by(Card.id).all()
+        cards = Card.query.filter_by(active=True).order_by(Card.id).all()
         duration_options = _checkout_duration_options()
         return render_template("dashboard.html", cards=cards, current_user=current_user, duration_options=duration_options)
 
@@ -157,7 +163,7 @@ def register_routes(app):
                     return redirect(url_for("checkout"))
 
                 booking_note = (request.form.get("booking_note") or "").strip()
-                is_indefinite = current_user.role in {"ADMIN", "SENIOR_PASTOR"} and request.form.get("indefinite_booking") == "on"
+                is_indefinite = _effective_role(current_user.role) == "ADMIN" and request.form.get("indefinite_booking") == "on"
                 if is_indefinite:
                     due_at = None
                     booking_note = booking_note or "Leadership booking - no expiry set."
@@ -213,7 +219,7 @@ def register_routes(app):
 
             if action == "request_extension":
                 if current_user.role == "USER":
-                    flash("Please contact an Admin or Senior Pastor directly for an extension. They can log the approved extension on your behalf.", "info")
+                    flash("Please contact an Admin directly for an extension. They can log the approved extension on your behalf.", "info")
                     return redirect(url_for("checkout"))
 
                 checkout_id = request.form.get("checkout_id")
@@ -285,7 +291,7 @@ def register_routes(app):
     @app.route("/extensions/<int:request_id>/decision/<decision>", methods=["POST", "GET"])
     @login_required
     def extension_decision(request_id, decision):
-        if current_user.role not in {"SENIOR_PASTOR", "ADMIN"}:
+        if _effective_role(current_user.role) != "ADMIN":
             abort(403)
 
         extension = ExtensionRequest.query.get_or_404(request_id)
@@ -432,7 +438,7 @@ def register_routes(app):
             abort(403)
         user = User.query.get_or_404(user_id)
         new_role = request.form.get("role")
-        if new_role in {"USER", "FINANCE", "SENIOR_PASTOR", "ADMIN"}:
+        if new_role in {"USER", "FINANCE", "ADMIN"}:
             user.role = new_role
             db.session.add(user)
             db.session.commit()
@@ -451,6 +457,22 @@ def register_routes(app):
 
         if request.method == "POST":
             action = request.form.get("action")
+            if action == "create_card":
+                name = (request.form.get("name") or "").strip()
+                if not name:
+                    flash("Card name is required.", "warning")
+                    return redirect(url_for("admin_cards"))
+                card = Card(
+                    name=name,
+                    description=(request.form.get("description") or "").strip(),
+                    active=request.form.get("active") == "on",
+                )
+                db.session.add(card)
+                db.session.commit()
+                log_event(current_user, "card_created", "card", card.id, f"Created {card.name}")
+                flash("Card added.", "success")
+                return redirect(url_for("admin_cards"))
+
             if action == "update_card":
                 card = Card.query.get_or_404(int(request.form.get("card_id")))
                 card.name = (request.form.get("name") or card.name).strip() or card.name
@@ -460,6 +482,20 @@ def register_routes(app):
                 db.session.commit()
                 log_event(current_user, "card_updated", "card", card.id, f"Updated {card.name}")
                 flash("Card updated.", "success")
+                return redirect(url_for("admin_cards"))
+
+            if action == "delete_card":
+                card = Card.query.get_or_404(int(request.form.get("card_id")))
+                if card.current_checkout is not None:
+                    flash("Cannot delete a card that is currently checked out.", "warning")
+                    return redirect(url_for("admin_cards"))
+                ExtensionRequest.query.filter_by(card_id=card.id).delete(synchronize_session=False)
+                Checkout.query.filter_by(card_id=card.id).delete(synchronize_session=False)
+                db.session.delete(card)
+                db.session.commit()
+                log_event(current_user, "card_deleted", "card", card.id, f"Deleted {card.name}")
+                flash("Card removed.", "success")
+                return redirect(url_for("admin_cards"))
 
         cards = Card.query.order_by(Card.id).all()
         return render_template("admin_cards.html", cards=cards)

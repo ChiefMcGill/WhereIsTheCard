@@ -300,6 +300,60 @@ def test_timezone_offset_defaults_to_two_hours():
         assert app.config["TIMEZONE_OFFSET_HOURS"] == 2
 
 
+def test_inactive_cards_disappear_and_admin_can_add_remove_cards():
+    app = build_app()
+    with app.app_context():
+        card = Card(name="Hidden Card", active=True, description="Will be hidden")
+        db.session.add(card)
+        db.session.commit()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        client.post(
+            "/admin/cards",
+            data={
+                "action": "update_card",
+                "card_id": "1",
+                "name": "Church Card 1",
+                "description": "Default church card",
+                "active": "",
+            },
+            follow_redirects=True,
+        )
+        dashboard = client.get("/")
+        assert b"Church Card 1" not in dashboard.data
+
+        create = client.post(
+            "/admin/cards",
+            data={
+                "action": "create_card",
+                "name": "New Card",
+                "description": "Created by admin",
+                "active": "on",
+            },
+            follow_redirects=True,
+        )
+        assert create.status_code == 200
+        with app.app_context():
+            new_card = Card.query.filter_by(name="New Card").first()
+            assert new_card is not None
+            assert new_card.active is True
+
+        delete = client.post(f"/admin/cards/{new_card.id}/delete", follow_redirects=True)
+        assert delete.status_code == 200
+        with app.app_context():
+            assert Card.query.filter_by(name="New Card").first() is None
+
+
 def test_admin_nav_and_email_settings_are_available_in_ui():
     app = build_app()
 

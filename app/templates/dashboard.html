@@ -35,7 +35,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            {% if current_user.role in ['ADMIN', 'SENIOR_PASTOR'] %}
+                            {% if current_user.role == 'ADMIN' %}
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" name="indefinite_booking" id="dashboard_indefinite_{{ card.id }}">
                                     <label class="form-check-label" for="dashboard_indefinite_{{ card.id }}">Indefinite booking</label>
@@ -74,6 +74,25 @@
                             {% endif %}
                             {% if current_user.is_authenticated %}
                                 <p class="mb-0"><strong>Purpose:</strong> {{ checkout.purpose }}</p>
+                            {% endif %}
+                            {% if current_user.role == 'ADMIN' %}
+                                <details class="mt-3">
+                                    <summary class="fw-semibold" style="cursor: pointer;">Card history</summary>
+                                    <ul class="small mt-2 mb-0 ps-3">
+                                        {% for item in card.checkouts|sort(attribute='checked_out_at', reverse=True)[:5] %}
+                                            <li>
+                                                {{ item.checked_out_at.strftime('%d %b %Y %H:%M') }} — {{ item.user.name }}
+                                                {% if item.returned_at %}
+                                                    → returned {{ item.returned_at.strftime('%d %b %Y %H:%M') }}
+                                                {% elif item.indefinite_booking %}
+                                                    → indefinite booking
+                                                {% else %}
+                                                    → due {{ item.due_at.strftime('%d %b %Y %H:%M') }}
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </details>
                             {% endif %}
                         {% else %}
                             <p class="mb-0 mt-2">Available for checkout.</p>
