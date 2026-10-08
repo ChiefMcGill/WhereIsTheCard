@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>My extension requests</h1>
+{% if requests %}
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Card</th>
+                <th>Requested due</th>
+                <th>Status</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in requests %}
+                <tr>
+                    <td>{{ item.card.name }}</td>
+                    <td>{{ item.requested_due_at.strftime('%d %b %Y %H:%M') }}</td>
+                    <td>{{ item.status }}</td>
+                    <td>{{ item.reason }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No extension requests yet.</p>
+{% endif %}
+{% endblock %}

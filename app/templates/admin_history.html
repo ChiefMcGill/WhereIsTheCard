@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>All checkouts</h1>
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Card</th>
+            <th>User</th>
+            <th>Checked out</th>
+            <th>Due</th>
+            <th>Returned</th>
+            <th>Purpose</th>
+            <th>Override</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for checkout in checkouts %}
+        <tr>
+            <td>{{ checkout.card.name }}</td>
+            <td>{{ checkout.user.name }}</td>
+            <td>{{ checkout.checked_out_at.strftime('%d %b %Y %H:%M') }}</td>
+            <td>{{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</td>
+            <td>{{ checkout.returned_at.strftime('%d %b %Y %H:%M') if checkout.returned_at else 'Open' }}</td>
+            <td>{{ checkout.purpose }}</td>
+            <td>
+                {% if checkout.returned_at is none %}
+                    <form method="post" action="{{ url_for('admin_close_checkout', checkout_id=checkout.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-danger" type="submit">Close</button>
+                    </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

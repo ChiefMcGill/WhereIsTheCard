@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Administration</h1>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Users</a>
+    <a href="{{ url_for('admin_cards') }}" class="btn btn-primary">Cards</a>
+    <a href="{{ url_for('admin_history') }}" class="btn btn-primary">History</a>
+    <a href="{{ url_for('admin_overdue') }}" class="btn btn-primary">Overdue</a>
+    <a href="{{ url_for('admin_audit') }}" class="btn btn-primary">Audit</a>
+</div>
+<h2>Current checkouts</h2>
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Card</th>
+            <th>User</th>
+            <th>Due</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for checkout in checkouts %}
+            {% if checkout.returned_at is none %}
+                <tr>
+                    <td>{{ checkout.card.name }}</td>
+                    <td>{{ checkout.user.name }}</td>
+                    <td>{{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</td>
+                    <td>{{ checkout.purpose }}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

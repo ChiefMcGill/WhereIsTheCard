@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Audit log</h1>
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Object</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in entries %}
+        <tr>
+            <td>{{ entry.timestamp.strftime('%d %b %Y %H:%M') }}</td>
+            <td>{{ entry.user.name if entry.user else 'System' }}</td>
+            <td>{{ entry.action }}</td>
+            <td>{{ entry.object_type }} {{ entry.object_id }}</td>
+            <td>{{ entry.details }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

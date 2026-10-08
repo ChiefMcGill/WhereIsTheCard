@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Manage users</h1>
+<div class="card p-3 mb-4">
+    <h2 class="h5">Create user</h2>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-2">
+            <div class="col-md-3"><input class="form-control" type="text" name="name" placeholder="Name" required></div>
+            <div class="col-md-3"><input class="form-control" type="email" name="email" placeholder="Email" required></div>
+            <div class="col-md-2"><input class="form-control" type="password" name="password" placeholder="Password" required></div>
+            <div class="col-md-2">
+                <select class="form-select" name="role">
+                    <option value="USER">USER</option>
+                    <option value="FINANCE">FINANCE</option>
+                    <option value="SENIOR_PASTOR">SENIOR_PASTOR</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </div>
+            <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Create</button></div>
+        </div>
+    </form>
+</div>
+
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+                <form method="post" action="{{ url_for('change_user_role', user_id=user.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select class="form-select form-select-sm" name="role" onchange="this.form.submit()">
+                        <option value="USER" {% if user.role == 'USER' %}selected{% endif %}>USER</option>
+                        <option value="FINANCE" {% if user.role == 'FINANCE' %}selected{% endif %}>FINANCE</option>
+                        <option value="SENIOR_PASTOR" {% if user.role == 'SENIOR_PASTOR' %}selected{% endif %}>SENIOR_PASTOR</option>
+                        <option value="ADMIN" {% if user.role == 'ADMIN' %}selected{% endif %}>ADMIN</option>
+                    </select>
+                </form>
+            </td>
+            <td>{{ 'Active' if user.active else 'Inactive' }}</td>
+            <td>
+                <form method="post" action="{{ url_for('toggle_user', user_id=user.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'Disable' if user.active else 'Enable' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('admin_reset_password', user_id=user.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="password" name="password" class="form-control form-control-sm d-inline-block w-auto" placeholder="New pass" required>
+                    <button class="btn btn-sm btn-warning" type="submit">Reset</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

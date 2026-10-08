@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0 rounded-4 p-3">
+            <div class="text-center mb-3">
+                <img src="{{ url_for('static', filename='img/SGC Round Logo1.svg') }}" alt="Solid Ground Church" class="login-logo">
+            </div>
+            <h2 class="text-center mb-3">Login</h2>
+            <form method="post" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.email.label(class_='form-label') }}
+                    {{ form.email(class_='form-control', autocomplete='email', placeholder='you@example.com') }}
+                </div>
+                <div class="mb-3">
+                    {{ form.password.label(class_='form-label') }}
+                    {{ form.password(class_='form-control', autocomplete='current-password') }}
+                </div>
+                <button class="btn btn-primary w-100" type="submit">Log in</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

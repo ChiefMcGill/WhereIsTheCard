@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>My checkout history</h1>
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Card</th>
+            <th>Checked out</th>
+            <th>Due</th>
+            <th>Returned</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for checkout in checkouts %}
+            <tr>
+                <td>{{ checkout.card.name }}</td>
+                <td>{{ checkout.checked_out_at.strftime('%d %b %Y %H:%M') }}</td>
+                <td>{{ checkout.due_at.strftime('%d %b %Y %H:%M') }}</td>
+                <td>{{ checkout.returned_at.strftime('%d %b %Y %H:%M') if checkout.returned_at else 'Not returned' }}</td>
+                <td>{{ checkout.purpose }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

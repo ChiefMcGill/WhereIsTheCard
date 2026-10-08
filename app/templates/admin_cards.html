@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Manage cards</h1>
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Active</th>
+            <th>Description</th>
+            <th>Save</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for card in cards %}
+        <tr>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_card">
+                <input type="hidden" name="card_id" value="{{ card.id }}">
+                <td><input class="form-control" type="text" name="name" value="{{ card.name }}"></td>
+                <td><input class="form-check-input" type="checkbox" name="active" {% if card.active %}checked{% endif %}></td>
+                <td><input class="form-control" type="text" name="description" value="{{ card.description or '' }}"></td>
+                <td><button class="btn btn-sm btn-primary" type="submit">Save</button></td>
+            </form>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

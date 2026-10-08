@@ -1,0 +1,86 @@
+:root {
+    --sgc-primary: #0d6efd;
+    --sgc-success: #198754;
+    --sgc-warning: #fd7e14;
+    --sgc-danger: #dc3545;
+    --sgc-dark: #212529;
+    --sgc-muted: #6c757d;
+    --sgc-light: #f8f9fa;
+}
+
+body {
+    background: #f4f7fb;
+    color: #1f2937;
+}
+
+.brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+}
+
+.login-logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+}
+
+.status-card {
+    border-left: 6px solid transparent;
+    border-radius: 18px;
+    box-shadow: 0 0.25rem 0.75rem rgba(15, 23, 42, 0.08);
+}
+
+.status-available {
+    border-left-color: var(--sgc-success);
+}
+
+.status-checkedout {
+    border-left-color: var(--sgc-warning);
+}
+
+.status-overdue {
+    border-left-color: var(--sgc-danger);
+}
+
+.status-badge {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+    background: rgba(0,0,0,0.06);
+}
+
+.status-available .status-badge {
+    background: rgba(25, 135, 84, 0.12);
+    color: var(--sgc-success);
+}
+
+.status-checkedout .status-badge {
+    background: rgba(253, 126, 20, 0.12);
+    color: var(--sgc-warning);
+}
+
+.status-overdue .status-badge {
+    background: rgba(220, 53, 69, 0.12);
+    color: var(--sgc-danger);
+}
+
+.btn {
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 767.98px) {
+    .navbar-brand {
+        font-size: 1rem;
+    }
+
+    .container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+}
