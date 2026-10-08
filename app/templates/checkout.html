@@ -63,24 +63,28 @@
                             </form>
                             <div class="mt-3">
                                 <h6>Need more time?</h6>
-                                {% set pending = checkout.extension_requests | selectattr('status','equalto','PENDING') | list | first %}
-                                {% if pending %}
-                                    <p class="text-warning">Extension request pending.</p>
+                                {% if current_user.role == 'USER' %}
+                                    <p class="text-muted mb-0">Please contact an Admin or Senior Pastor directly. They can log the approved extension on your behalf.</p>
                                 {% else %}
-                                    <form method="post">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <input type="hidden" name="action" value="request_extension">
-                                        <input type="hidden" name="checkout_id" value="{{ checkout.id }}">
-                                        <div class="mb-2">
-                                            <label class="form-label">Requested new return time</label>
-                                            <input type="datetime-local" class="form-control" name="requested_due_at" required>
-                                        </div>
-                                        <div class="mb-2">
-                                            <label class="form-label">Reason</label>
-                                            <textarea class="form-control" name="reason" rows="3" required></textarea>
-                                        </div>
-                                        <button type="submit" class="btn btn-outline-primary w-100">REQUEST EXTENSION</button>
-                                    </form>
+                                    {% set pending = checkout.extension_requests | selectattr('status','equalto','PENDING') | list | first %}
+                                    {% if pending %}
+                                        <p class="text-warning">Extension request pending.</p>
+                                    {% else %}
+                                        <form method="post">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="action" value="request_extension">
+                                            <input type="hidden" name="checkout_id" value="{{ checkout.id }}">
+                                            <div class="mb-2">
+                                                <label class="form-label">Requested new return time</label>
+                                                <input type="datetime-local" class="form-control" name="requested_due_at" required>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label">Reason</label>
+                                                <textarea class="form-control" name="reason" rows="3" required></textarea>
+                                            </div>
+                                            <button type="submit" class="btn btn-outline-primary w-100">REQUEST EXTENSION</button>
+                                        </form>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         {% else %}

@@ -187,6 +187,10 @@ def register_routes(app):
                 return redirect(url_for("checkout"))
 
             if action == "request_extension":
+                if current_user.role == "USER":
+                    flash("Please contact an Admin or Senior Pastor directly for an extension. They can log the approved extension on your behalf.", "info")
+                    return redirect(url_for("checkout"))
+
                 checkout_id = request.form.get("checkout_id")
                 checkout = _get_checkout_or_404(checkout_id)
                 if checkout.user_id != current_user.id:

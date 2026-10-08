@@ -285,10 +285,9 @@ def test_user_can_return_their_own_card_and_cannot_return_another_users_card():
         assert "cannot return another person's card" in page_text
 
 
-def test_extension_rules_and_approval():
+def test_standard_user_cannot_request_extension_and_must_contact_admin_or_pastor():
     app = build_app()
     with app.app_context():
-        senior = create_user("pastor@church.org", "Senior Pastor", "SENIOR_PASTOR", "pw")
         user = create_user("mary@church.org", "Mary", "USER", "pw")
         card = Card.query.first()
         checkout = Checkout(
@@ -317,10 +316,43 @@ def test_extension_rules_and_approval():
             follow_redirects=True,
         )
         assert response.status_code == 200
+        assert b"contact an admin or senior pastor" in response.data.lower()
+        assert ExtensionRequest.query.count() == 0
+
+
+def test_extension_rules_and_approval():
+    app = build_app()
+    with app.app_context():
+        senior = create_user("pastor@church.org", "Senior Pastor", "SENIOR_PASTOR", "pw")
+        card = Card.query.first()
+        checkout = Checkout(
+            card_id=card.id,
+            user_id=senior.id,
+            purpose="General use",
+            checked_out_at=datetime.utcnow() - timedelta(minutes=30),
+            original_due_at=datetime.utcnow() + timedelta(minutes=30),
+            due_at=datetime.utcnow() + timedelta(minutes=30),
+            is_active=True,
+        )
+        db.session.add(checkout)
+        db.session.commit()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "pastor@church.org", "password": "pw"}, follow_redirects=True)
+        checkout_id = Checkout.query.filter_by(user_id=User.query.filter_by(email="pastor@church.org").first().id).first().id
+        response = client.post(
+            "/checkout",
+            data={
+                "action": "request_extension",
+                "checkout_id": str(checkout_id),
+                "requested_due_at": (datetime.utcnow() + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M"),
+                "reason": "Need more time.",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
         assert b"extension request has been sent" in response.data.lower()
 
-        client.get("/logout")
-        client.post("/login", data={"email": "pastor@church.org", "password": "pw"}, follow_redirects=True)
         request = ExtensionRequest.query.first()
         approved = client.get(f"/extensions/{request.id}/decision/approve", follow_redirects=True)
         assert approved.status_code == 200
