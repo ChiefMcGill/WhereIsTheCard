@@ -232,12 +232,14 @@ def register_routes(app):
                 is_indefinite = _effective_role(current_user.role) == "ADMIN" and request.form.get("indefinite_booking") == "on"
                 if is_indefinite:
                     due_at = None
+                    original_due_at = local_now()
                     booking_note = booking_note or "Leadership booking - no expiry set."
                 else:
                     duration_minutes = _parse_requested_minutes(request.form)
                     if duration_minutes is None:
                         duration_minutes = int(os.getenv("CARD_CHECKOUT_MINUTES", "60"))
                     due_at = local_now() + timedelta(minutes=duration_minutes)
+                    original_due_at = due_at
                     booking_note = None if not booking_note else booking_note
 
                 checkout = Checkout(
@@ -245,7 +247,7 @@ def register_routes(app):
                     user_id=current_user.id,
                     purpose=purpose,
                     checked_out_at=local_now(),
-                    original_due_at=due_at,
+                    original_due_at=original_due_at,
                     due_at=due_at,
                     returned_at=None,
                     indefinite_booking=is_indefinite,

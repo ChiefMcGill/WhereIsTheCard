@@ -19,9 +19,47 @@ def ensure_user_schema():
     db.session.commit()
 
 
+def _rebuild_sqlite_table_with_nullable_column(table_name, column_name):
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    current_columns = inspect(db.engine).get_columns(table_name)
+    if not current_columns:
+        return
+
+    legacy_table = f"{table_name}_legacy"
+    info_rows = db.session.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+    if not info_rows:
+        return
+
+    column_names = [row[1] for row in info_rows]
+    if column_name not in column_names:
+        return
+
+    column_spec = []
+    for row in info_rows:
+        name = row[1]
+        data_type = row[2] or "TEXT"
+        is_pk = bool(row[5])
+        not_null = bool(row[3])
+        spec = f'"{name}" {data_type}'
+        if is_pk:
+            spec += " PRIMARY KEY"
+        elif name != column_name and not_null:
+            spec += " NOT NULL"
+        column_spec.append(spec)
+
+    db.session.execute(text(f"ALTER TABLE {table_name} RENAME TO {legacy_table}"))
+    db.session.execute(text(f"CREATE TABLE {table_name} ({', '.join(column_spec)})"))
+    db.session.execute(text(f"INSERT INTO {table_name} ({', '.join(f'"{name}"' for name in column_names)}) SELECT {', '.join(f'"{name}"' for name in column_names)} FROM {legacy_table}"))
+    db.session.execute(text(f"DROP TABLE {legacy_table}"))
+    db.session.execute(text(f"CREATE UNIQUE INDEX IF NOT EXISTS ix_active_checkout_per_card ON {table_name} (card_id) WHERE returned_at IS NULL"))
+    db.session.commit()
+
+
 def ensure_checkout_schema():
     inspector = inspect(db.engine)
-    columns = {column["name"] for column in inspector.get_columns("checkouts")}
+    columns = {column["name"]: column for column in inspector.get_columns("checkouts")}
     if "reminder_sent" not in columns:
         db.session.execute(text("ALTER TABLE checkouts ADD COLUMN reminder_sent BOOLEAN NOT NULL DEFAULT 0"))
     if "senior_pastor_notified" not in columns:
@@ -30,6 +68,13 @@ def ensure_checkout_schema():
         db.session.execute(text("ALTER TABLE checkouts ADD COLUMN indefinite_booking BOOLEAN NOT NULL DEFAULT 0"))
     if "booking_note" not in columns:
         db.session.execute(text("ALTER TABLE checkouts ADD COLUMN booking_note TEXT"))
+
+    for column_name in ["original_due_at", "due_at"]:
+        column = columns.get(column_name)
+        if column is not None and column.get("nullable") is False:
+            _rebuild_sqlite_table_with_nullable_column("checkouts", column_name)
+            columns = {column["name"]: column for column in inspector.get_columns("checkouts")}
+
     db.session.commit()
 
 

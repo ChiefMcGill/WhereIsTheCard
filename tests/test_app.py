@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app import create_app, ensure_default_admin
+from sqlalchemy import text
+
+from app import create_app, ensure_checkout_schema, ensure_default_admin
 from app.extensions import db
 from app.models import AppSetting, Card, Checkout, ExtensionRequest, User, ensure_default_cards, local_now, log_event
 from app.tasks.overdue import check_overdue_checkouts
@@ -307,6 +309,62 @@ def test_admin_can_book_a_card_indefinitely_with_a_visible_note():
             assert checkout.indefinite_booking is True
             assert checkout.booking_note == "Awaiting final approval from the board."
             assert checkout.due_at is None
+
+
+def test_legacy_checkout_table_is_rebuilt_to_allow_nullable_indefinite_dates():
+    app = build_app()
+    with app.app_context():
+        db.session.execute(text("ALTER TABLE checkouts RENAME TO checkouts_legacy"))
+        db.session.execute(
+            text(
+                """
+                CREATE TABLE checkouts (
+                    id INTEGER PRIMARY KEY,
+                    card_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    purpose VARCHAR(300) NOT NULL,
+                    checked_out_at DATETIME NOT NULL,
+                    original_due_at DATETIME NOT NULL,
+                    due_at DATETIME NOT NULL,
+                    returned_at DATETIME,
+                    indefinite_booking BOOLEAN NOT NULL DEFAULT 0,
+                    booking_note TEXT,
+                    overdue_notified BOOLEAN NOT NULL DEFAULT 0,
+                    reminder_sent BOOLEAN NOT NULL DEFAULT 0,
+                    senior_pastor_notified BOOLEAN NOT NULL DEFAULT 0,
+                    overdue_reason TEXT,
+                    is_active BOOLEAN NOT NULL DEFAULT 1
+                )
+                """
+            )
+        )
+        db.session.execute(
+            text(
+                """
+                INSERT INTO checkouts (
+                    id, card_id, user_id, purpose, checked_out_at, original_due_at, due_at,
+                    returned_at, indefinite_booking, booking_note, overdue_notified,
+                    reminder_sent, senior_pastor_notified, overdue_reason, is_active
+                )
+                SELECT
+                    id, card_id, user_id, purpose, checked_out_at, original_due_at, due_at,
+                    returned_at, indefinite_booking, booking_note, overdue_notified,
+                    reminder_sent, senior_pastor_notified, overdue_reason, is_active
+                FROM checkouts_legacy
+                """
+            )
+        )
+        db.session.execute(text("DROP TABLE checkouts_legacy"))
+        db.session.commit()
+
+        ensure_checkout_schema()
+
+        inspect_columns = db.session.execute(text("PRAGMA table_info(checkouts)")).fetchall()
+        original_due_column = next(row for row in inspect_columns if row[1] == "original_due_at")
+        due_column = next(row for row in inspect_columns if row[1] == "due_at")
+
+        assert original_due_column[3] == 0
+        assert due_column[3] == 0
 
 
 def test_indefinite_booking_renders_without_error_in_admin_views():
