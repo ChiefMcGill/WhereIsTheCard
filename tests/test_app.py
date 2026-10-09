@@ -572,6 +572,47 @@ def test_user_can_return_their_own_card_and_cannot_return_another_users_card():
         assert "cannot return another person's card" in page_text
 
 
+def test_admin_can_return_any_checked_out_card():
+    app = build_app()
+    with app.app_context():
+        user = create_user("owner@church.org", "Card Owner", "USER", "pw")
+        card = Card.query.get(2)
+        checkout = Checkout(
+            card_id=card.id,
+            user_id=user.id,
+            purpose="Weekend ministry",
+            checked_out_at=datetime.utcnow(),
+            original_due_at=datetime.utcnow() + timedelta(minutes=30),
+            due_at=datetime.utcnow() + timedelta(minutes=30),
+            is_active=True,
+        )
+        db.session.add(checkout)
+        db.session.commit()
+
+    with app.test_client() as client:
+        client.post("/login", data={"email": "server@solidground.co.za", "password": "CardAdmin123"}, follow_redirects=True)
+        client.post(
+            "/change-password",
+            data={
+                "new_password": "NewAdminPass123",
+                "confirm_password": "NewAdminPass123",
+            },
+            follow_redirects=True,
+        )
+
+        checkout_id = Checkout.query.filter_by(user_id=User.query.filter_by(email="owner@church.org").first().id).first().id
+        response = client.post("/checkout", data={"action": "prepare_return", "checkout_id": str(checkout_id)}, follow_redirects=True)
+        assert response.status_code == 200
+        assert b"Return card" in response.data
+
+        returned = client.post("/checkout", data={"action": "return", "checkout_id": str(checkout_id)}, follow_redirects=True)
+        assert returned.status_code == 200
+        assert b"card returned successfully" in returned.data.lower()
+
+        with app.app_context():
+            assert Checkout.query.get(checkout_id).returned_at is not None
+
+
 def test_standard_user_cannot_request_extension_and_must_contact_admin_or_pastor():
     app = build_app()
     with app.app_context():

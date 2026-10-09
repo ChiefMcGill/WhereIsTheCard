@@ -265,7 +265,7 @@ def register_routes(app):
             if action == "prepare_return":
                 checkout_id = request.form.get("checkout_id")
                 checkout = _get_checkout_or_404(checkout_id)
-                if checkout.user_id != current_user.id:
+                if checkout.user_id != current_user.id and current_user.role != "ADMIN":
                     flash("You cannot return another person's card.", "danger")
                     return redirect(url_for("checkout"))
                 return render_template("checkout.html", cards=cards, current_user=current_user, checkout_to_confirm=checkout, confirm_return=True)
@@ -273,7 +273,7 @@ def register_routes(app):
             if action == "return":
                 checkout_id = request.form.get("checkout_id")
                 checkout = _get_checkout_or_404(checkout_id)
-                if checkout.user_id != current_user.id:
+                if checkout.user_id != current_user.id and current_user.role != "ADMIN":
                     flash("You cannot return another person's card.", "danger")
                     return redirect(url_for("checkout"))
 
