@@ -10,13 +10,19 @@ from app.notifications.email import send_email
 logger = logging.getLogger(__name__)
 
 
+def _format_due_datetime(value, fallback="No due date"):
+    if value is None:
+        return fallback
+    return value.strftime("%d %B %Y %H:%M")
+
+
 def check_overdue_checkouts():
     now = local_now()
     active_checkouts = Checkout.query.filter(Checkout.returned_at.is_(None)).all()
     for checkout in active_checkouts:
         card = checkout.card
         holder = checkout.user
-        if holder is None:
+        if holder is None or checkout.due_at is None:
             continue
 
         if not checkout.reminder_sent and checkout.due_at > now and (checkout.due_at - now).total_seconds() <= 300:
@@ -24,7 +30,7 @@ def check_overdue_checkouts():
             body = (
                 f"Hello {holder.name},\n\n"
                 f"This is a friendly reminder that the card {card.name} is due for return in 5 minutes.\n\n"
-                f"Current due time:\n{checkout.due_at.strftime('%d %B %Y %H:%M')}\n\n"
+                f"Current due time:\n{_format_due_datetime(checkout.due_at)}\n\n"
                 f"Purpose:\n{checkout.purpose}\n\n"
                 "Please return the card when you are finished so it can be signed back in. Thank you."
             )
@@ -43,7 +49,7 @@ def check_overdue_checkouts():
                 f"{card.name} is overdue.\n\n"
                 f"Current holder:\n{holder.name}\n\n"
                 f"Checked out:\n{checkout.checked_out_at.strftime('%d %B %Y %H:%M')}\n\n"
-                f"Due:\n{checkout.due_at.strftime('%d %B %Y %H:%M')}\n\n"
+                f"Due:\n{_format_due_datetime(checkout.due_at)}\n\n"
                 f"Current time:\n{now.strftime('%d %B %Y %H:%M')}\n\n"
                 f"Overdue:\n{overdue_minutes} minutes\n\n"
                 f"Purpose:\n{checkout.purpose}\n\n"
@@ -69,7 +75,7 @@ def check_overdue_checkouts():
                         f"The card {card.name} has been overdue for {overdue_minutes} minutes.\n\n"
                         f"Current holder:\n{holder.name}\n\n"
                         f"Purpose:\n{checkout.purpose}\n\n"
-                        f"Due time:\n{checkout.due_at.strftime('%d %B %Y %H:%M')}\n\n"
+                        f"Due time:\n{_format_due_datetime(checkout.due_at)}\n\n"
                         "Please review this card and follow up with the holder."
                     )
                     sent = send_email(subject, body, senior_email)

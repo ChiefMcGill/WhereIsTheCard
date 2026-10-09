@@ -61,6 +61,12 @@ def _checkout_duration_options():
     return values
 
 
+def _format_datetime(value, label="No due date"):
+    if value is None:
+        return label
+    return value.strftime("%d %B %Y %H:%M")
+
+
 def register_routes(app):
     @app.before_request
     def enforce_password_change():
@@ -323,7 +329,7 @@ def register_routes(app):
                 body = (
                     f"A user has requested an extension for {checkout.card.name}.\n\n"
                     f"User:\n{current_user.name}\n\n"
-                    f"Current due time:\n{checkout.due_at.strftime('%d %B %Y %H:%M')}\n\n"
+                    f"Current due time:\n{_format_datetime(checkout.due_at, 'Indefinite / no due date')}\n\n"
                     f"Requested new due time:\n{requested_due_at.strftime('%d %B %Y %H:%M')}\n\n"
                     f"Reason:\n{reason}\n\n"
                     f"Approve: https://whereisthecard.solidground.co.za/extensions/{extension.id}/decision/approve\n"
@@ -399,7 +405,7 @@ def register_routes(app):
                 (
                     "Your extension request has been rejected.\n\n"
                     f"Card:\n{extension.card.name}\n\n"
-                    f"Original due time:\n{extension.current_due_at.strftime('%d %B %Y %H:%M')}\n\n"
+                    f"Original due time:\n{_format_datetime(extension.current_due_at, 'Indefinite / no due date')}\n\n"
                     f"Reason:\n{decision_note or 'No reason supplied.'}\n\n"
                     "The original due time remains unchanged."
                 ),
